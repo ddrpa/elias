@@ -7,8 +7,44 @@
   <artifactId>elias</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <packaging>jar</packaging>
+  <name>${project.groupId}:${project.artifactId}</name>
+  <description>Turns Java POJOs into MySQL Schemas</description>
+  <url>https://github.com/ddrpa/elias</url>
 
-  <name>elias</name>
+  <licenses>
+    <license>
+      <name>Apache 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>yufan</name>
+      <email>yufan@live.com</email>
+      <organization>yufanonsoftware.me</organization>
+      <organizationUrl>https://yufanonsoftware.me</organizationUrl>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:git://github.com/ddrpa/elias.git</connection>
+    <developerConnection>scm:git:ssh://github.com:ddrpa/elias.git
+    </developerConnection>
+    <url>http://github.com/ddrpa/elias/tree/master</url>
+  </scm>
+
+  <distributionManagement>
+    <snapshotRepository>
+      <id>ossrh</id>
+      <url>https://s01.oss.sonatype.org/content/repositories/snapshots
+      </url>
+    </snapshotRepository>
+    <repository>
+      <id>ossrh</id>
+      <url>
+        https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/
+      </url>
+    </repository>
+  </distributionManagement>
 
   <properties>
     <java.version>17</java.version>
