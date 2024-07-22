@@ -10,8 +10,9 @@ public class ColumnSpec {
     private String columnName;
     private String columnType;
     private int length;
-    private boolean isNullable;
+    private boolean nullable = true;
     private String comment;
-    private boolean isPrimaryKey = false;
+    private boolean primaryKey = false;
     private boolean autoIncrement = false;
+    private String defaultValue;
 }

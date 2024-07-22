@@ -62,17 +62,22 @@
     <dependency>
       <groupId>com.baomidou</groupId>
       <artifactId>mybatis-plus-annotation</artifactId>
-      <version>3.5.3.1</version>
+      <version>3.5.7</version>
     </dependency>
     <dependency>
       <groupId>org.mybatis</groupId>
       <artifactId>mybatis</artifactId>
-      <version>3.5.10</version>
+      <version>3.5.16</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.velocity</groupId>
+      <artifactId>velocity-engine-core</artifactId>
+      <version>2.3</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-lang3</artifactId>
-      <version>3.14.0</version>
+      <version>3.15.0</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
@@ -130,4 +135,11 @@
       </plugin>
     </plugins>
   </build>
+  <repositories>
+    <repository>
+      <id>maven_central</id>
+      <name>Maven Central</name>
+      <url>https://repo.maven.apache.org/maven2/</url>
+    </repository>
+  </repositories>
 </project>

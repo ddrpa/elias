@@ -1,0 +1,9 @@
+#if($dropIfExists)drop table if exists `${schemaName}.${tableName}`;#end
+
+create table `${schemaName}.${tableName}` (
+    #foreach($c in $columns)
+    `${c.columnName}` ${c.columnType}#if($c.length > 0)(${c.length})#end#if($c.nullable) null#else not null#end#if($c.defaultValue) default ${c.defaultValue}#end#if($c.autoIncrement) auto_increment#end#if(${c.comment}) comment '${c.comment}'#end#if(${c.primaryKey})
+
+        primary key#end#if($foreach.hasNext),#end
+    #end
+);

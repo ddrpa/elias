@@ -11,8 +11,8 @@ import java.time.LocalDate;
 @TableName("tbl_account")
 public class Account {
 
-    @TableId(value = "id", type = IdType.ASSIGN_ID)
-    private Long id;
+    @TableId(value = "id", type = IdType.AUTO)
+    private Integer id;
     @TableField("username")
     private String name;
     private String emailAddress;
