@@ -42,7 +42,7 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
     private boolean dropIfExists = true;
 
 
-    public MySQLSchemaGenerator(String packageName, String schemaName) {
+    public MySQLSchemaGenerator(String packageName) {
         super("");
         this.packageName = packageName;
         this.schemaName = schemaName;
