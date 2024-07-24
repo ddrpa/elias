@@ -9,4 +9,10 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface GenerateTable {
 
+    /**
+     * 手动关闭表生成
+     *
+     * @return
+     */
+    boolean enable() default true;
 }

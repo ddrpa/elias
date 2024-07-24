@@ -10,11 +10,13 @@ import cc.ddrpa.dorian.elias.annotation.types.AsLongText;
 import cc.ddrpa.dorian.elias.annotation.types.GivenLength;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -73,8 +75,19 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
         Reflections reflections = new Reflections(this.packageName);
         Set<Class<?>> annotated = reflections.get(
             SubTypes.of(TypesAnnotated.with(GenerateTable.class)).asClass());
-        annotated.forEach(clazz -> logger.info("Found annotated class: {}", clazz.getName()));
-        classes.addAll(annotated);
+        annotated.forEach(clazz -> {
+            GenerateTable generateTable = clazz.getAnnotation(GenerateTable.class);
+            if (Objects.isNull(generateTable)) {
+                // 如果 DTO 类继承了需要生成表的实体类，那么它会被反射找出来，但是获取这个注解时为 null
+                return;
+            }
+            if (!generateTable.enable()) {
+                // 手动关闭表生成
+                return;
+            }
+            logger.info("Found annotated class: {}", clazz.getName());
+            classes.add(clazz);
+        });
         return this;
     }
 
@@ -85,11 +98,14 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
     }
 
     public MySQLSchemaGenerator setOutputFile(String outputFile) throws IOException {
-        List<String> tableDSLList = classes.stream().map(clazz -> {
-            logger.info("Processing class: {}", clazz.getName());
-            TableSpec tableSpec = processClass(clazz);
-            return dsl(tableSpec);
-        }).toList();
+        List<String> tableDSLList = classes.stream()
+            .sorted(Comparator.comparing(Class::getSimpleName))
+            .map(clazz -> {
+                logger.info("Processing class: {}", clazz.getName());
+                TableSpec tableSpec = processClass(clazz);
+                return ddl(tableSpec);
+            })
+            .toList();
         try (FileOutputStream fos = new FileOutputStream(outputFile)) {
             for (String dsl : tableDSLList) {
                 fos.write(dsl.getBytes(StandardCharsets.UTF_8));
@@ -129,6 +145,11 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
             if (IdType.AUTO.equals(tableId.type()) || IdType.NONE.equals(tableId.type())) {
                 columnSpec.setAutoIncrement(true);
             }
+        }
+        // 如果字段有 com.baomidou.mybatisplus.annotation.TableLogic 注解，设置 defaultValue 为 0
+        // 这一功能有待商榷
+        if (field.isAnnotationPresent(TableLogic.class)) {
+            columnSpec.setDefaultValue("0");
         }
         // 获取 column 的名称
         columnSpec.setColumnName(getColumnName(field));
@@ -196,7 +217,7 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
         };
     }
 
-    private String dsl(TableSpec tableSpec) {
+    private String ddl(TableSpec tableSpec) {
         VelocityContext context = new VelocityContext();
         context.put("dropIfExists", dropIfExists);
         context.put("schemaName", tableSpec.getSchemaName());
