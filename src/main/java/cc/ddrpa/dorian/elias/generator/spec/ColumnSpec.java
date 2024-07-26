@@ -1,4 +1,4 @@
-package cc.ddrpa.dorian.elias.generator;
+package cc.ddrpa.dorian.elias.generator.spec;
 
 import lombok.Data;
 import lombok.experimental.Accessors;
@@ -7,8 +7,8 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class ColumnSpec {
 
-    private String columnName;
-    private String columnType;
+    private String name;
+    private String type;
     private int length;
     private boolean nullable = true;
     private String comment;

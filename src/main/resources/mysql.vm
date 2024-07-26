@@ -1,9 +1,12 @@
-#if($dropIfExists)drop table if exists `${tableName}`;#end
+#if($t.dropIfExists)drop table if exists `${t.name}`;
+#end
+create table `${t.name}` (
+#foreach($c in $t.columns)
+  `${c.name}` ${c.type}#if($c.length > 0)(${c.length})#end#if($c.nullable) null#else not null#end#if($c.defaultValue) default ${c.defaultValue}#end#if($c.autoIncrement) auto_increment#end#if(${c.comment}) comment '${c.comment}'#end#if(${c.primaryKey})
 
-create table `${tableName}` (
-    #foreach($c in $columns)
-    `${c.columnName}` ${c.columnType}#if($c.length > 0)(${c.length})#end#if($c.nullable) null#else not null#end#if($c.defaultValue) default ${c.defaultValue}#end#if($c.autoIncrement) auto_increment#end#if(${c.comment}) comment '${c.comment}'#end#if(${c.primaryKey})
-
-        primary key#end#if($foreach.hasNext),#end
-    #end
+      primary key#end#if($foreach.hasNext),#end
+#end
 );
+#foreach($i in $t.indexes)
+create#if($i.unique) unique#end index ${i.name} on `${t.name}` ($i.columnList);
+#end

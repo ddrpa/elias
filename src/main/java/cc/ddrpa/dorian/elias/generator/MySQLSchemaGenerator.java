@@ -6,8 +6,13 @@ import static org.reflections.scanners.Scanners.TypesAnnotated;
 
 import cc.ddrpa.dorian.elias.annotation.EliasIgnore;
 import cc.ddrpa.dorian.elias.annotation.GenerateTable;
+import cc.ddrpa.dorian.elias.annotation.Index;
 import cc.ddrpa.dorian.elias.annotation.types.AsLongText;
+import cc.ddrpa.dorian.elias.annotation.types.DefaultValue;
 import cc.ddrpa.dorian.elias.annotation.types.GivenLength;
+import cc.ddrpa.dorian.elias.generator.spec.ColumnSpec;
+import cc.ddrpa.dorian.elias.generator.spec.IndexSpec;
+import cc.ddrpa.dorian.elias.generator.spec.TableSpec;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
@@ -16,11 +21,14 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
@@ -39,7 +47,7 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
     private final VelocityEngine velocityEngine;
     private final Template template;
 
-    private String packageName;
+    private final String packageName;
     private String schemaName;
     private boolean dropIfExists = true;
 
@@ -115,10 +123,19 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
         return this;
     }
 
+    /**
+     * 将 Java 类转换为 TableSpec
+     *
+     * @param clazz
+     * @param <T>
+     * @return
+     */
     private <T> TableSpec processClass(Class<T> clazz) {
         TableSpec tableSpec = new TableSpec();
-        tableSpec.setSchemaName(this.schemaName);
-        tableSpec.setTableName(getTableName(clazz));
+//        tableSpec.setDatabase(this.schemaName);
+        tableSpec.setName(getTableName(clazz));
+        tableSpec.setDropIfExists(this.dropIfExists);
+        // 处理类成员
         Set<Field> fields = ReflectionUtils.get(Fields.of(clazz));
         List<ColumnSpec> columns = fields.stream().map(this::processField)
             .filter(Objects::nonNull).toList();
@@ -127,7 +144,50 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
                 "Multiple primary keys found in class: " + clazz.getName());
         }
         tableSpec.setColumns(columns);
+        // 处理索引定义
+        GenerateTable generateTableAnnotation = clazz.getAnnotation(GenerateTable.class);
+        Set<String> columnNameSet = columns.stream()
+            .map(ColumnSpec::getName)
+            .collect(Collectors.toSet());
+        if (generateTableAnnotation != null && generateTableAnnotation.indexes().length > 0) {
+            List<IndexSpec> indexSpecs = Arrays.stream(generateTableAnnotation.indexes())
+                .map(annotation -> processIndex(annotation, columnNameSet))
+                .toList();
+            tableSpec.setIndexes(indexSpecs);
+        }
         return tableSpec;
+    }
+
+    private IndexSpec processIndex(Index indexAnnotation, Set<String> columnNameSet) {
+        String indexName;
+        String columnList = indexAnnotation.columnList();
+        if (StringUtils.isBlank(columnList)) {
+            logger.error("Index column list is empty");
+            throw new IllegalStateException("Index column list is empty");
+        }
+        if (StringUtils.isNoneBlank(indexAnnotation.name())) {
+            indexName = indexAnnotation.name();
+        } else {
+            indexName = "idx_";
+            if (indexAnnotation.unique()) {
+                indexName += "unique_";
+            }
+            List<String> columns = Arrays.stream(
+                    indexAnnotation.columnList().split(","))
+                .map(columnSpec -> columnSpec.trim().split(" ")[0])
+                .toList();
+            columns.stream().forEach(column -> {
+                if (!columnNameSet.contains(column)) {
+                    logger.error("Index column not found: {}", column);
+                    throw new IllegalStateException("Index column not found: " + column);
+                }
+            });
+            indexName += columns.stream().collect(Collectors.joining("_"));
+        }
+        return new IndexSpec()
+            .setName(indexName)
+            .setUnique(indexAnnotation.unique())
+            .setColumnList(indexAnnotation.columnList());
     }
 
     private ColumnSpec processField(Field field) {
@@ -151,11 +211,16 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
         if (field.isAnnotationPresent(TableLogic.class)) {
             columnSpec.setDefaultValue("0");
         }
+        // DefaultValue 注解修饰的属性
+        if (field.isAnnotationPresent(DefaultValue.class)) {
+            DefaultValue defaultValue = field.getAnnotation(DefaultValue.class);
+            columnSpec.setDefaultValue(defaultValue.value());
+        }
         // 获取 column 的名称
-        columnSpec.setColumnName(getColumnName(field));
+        columnSpec.setName(getColumnName(field));
         // 推断 column 的类型
         Pair<String, Integer> columnType = getColumnType(field);
-        columnSpec.setColumnType(columnType.getLeft());
+        columnSpec.setType(columnType.getLeft());
         columnSpec.setLength(columnType.getRight());
         return columnSpec;
     }
@@ -219,10 +284,7 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
 
     private String ddl(TableSpec tableSpec) {
         VelocityContext context = new VelocityContext();
-        context.put("dropIfExists", dropIfExists);
-        context.put("schemaName", tableSpec.getSchemaName());
-        context.put("tableName", tableSpec.getTableName());
-        context.put("columns", tableSpec.getColumns());
+        context.put("t", tableSpec);
         StringWriter writer = new StringWriter();
         template.merge(context, writer);
         return writer.toString();

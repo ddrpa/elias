@@ -1,4 +1,4 @@
-package cc.ddrpa.dorian.elias.generator;
+package cc.ddrpa.dorian.elias.generator.spec;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,8 +10,9 @@ import lombok.experimental.Accessors;
 public class TableSpec {
 
     private boolean dropIfExists = false;
-    private boolean createIfNotExists = true;
-    private String schemaName;
-    private String tableName;
+//    private boolean createIfNotExists = true;
+//    private String database;
+    private String name;
     private List<ColumnSpec> columns = new ArrayList<>(5);
+    private List<IndexSpec> indexes = new ArrayList<>(2);
 }

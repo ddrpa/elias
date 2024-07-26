@@ -15,4 +15,11 @@ public @interface GenerateTable {
      * @return
      */
     boolean enable() default true;
+
+    /**
+     * 声明索引
+     *
+     * @return
+     */
+    Index[] indexes() default {};
 }
