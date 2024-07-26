@@ -13,15 +13,16 @@ Elias 可以把 Java POJOs 转换成 MySQL Schema。
 
 所以笔者编写了这个小工具，可以将指定的 Java 类转换为 MySQL 建表语句。当然，这样的工作流程也会有些缺点，比如你只能靠 diff 工具手动比较后编写 Liquibase 的变更文件了。
 
-# Howto
+# HowTo
 
-项目仍在开发中，API 可以预期地会有调整，你可以查看单元测试了解目前的用法。
+项目仍在开发中，API 可以预期地会有调整，你可以查看单元测试中的实体类设计和生成代码了解目前的用法。
 
 ![](./showcase.png)
 
 # Roadmap
 
-- [ ] 支持声明索引
-- [ ] 更多列的控制选项
-- [ ] 支持 Jakarta Persistence API 提供的注解
-- [ ] 输出美化
+- [x] 支持声明索引
+- 更多列的控制选项
+  - [ ] 支持 Jakarta Persistence API 注解
+  - [ ] 支持 com.baomidou.mybatisplus.annotation.TableField 注解中的 JDBC 类型声明
+- [x] 输出美化

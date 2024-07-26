@@ -1,5 +1,6 @@
 package cc.ddrpa.dorian.elias.generator;
 
+import cc.ddrpa.dorian.elias.annotation.GenerateTable;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.lang.reflect.Field;
@@ -8,12 +9,6 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 
 public abstract class SchemaGenerator {
-
-    private String tablePrefix = "tbl_";
-
-    protected SchemaGenerator(String tablePrefix) {
-        this.tablePrefix = tablePrefix;
-    }
 
     static String camelCaseToSnakeCase(String text) {
         Matcher m = Pattern.compile("(?<=[a-z])[A-Z]").matcher(text);
@@ -26,9 +21,14 @@ public abstract class SchemaGenerator {
             if (StringUtils.isNoneBlank(tableName.value())) {
                 return tableName.value();
             }
+        } else if (clazz.isAnnotationPresent(GenerateTable.class)) {
+            GenerateTable generateTable = (GenerateTable) clazz.getAnnotation(GenerateTable.class);
+            if (StringUtils.isNoneBlank(generateTable.tablePrefix())) {
+                return generateTable.tablePrefix() + camelCaseToSnakeCase(
+                    clazz.getSimpleName()).toLowerCase();
+            }
         }
-        // 没有对首字母做检测
-        return tablePrefix + camelCaseToSnakeCase(clazz.getSimpleName()).toLowerCase();
+        return camelCaseToSnakeCase(clazz.getSimpleName()).toLowerCase();
     }
 
     String getColumnName(Field field) {

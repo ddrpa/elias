@@ -6,12 +6,25 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * 要求字段按 LONGTEXT 存储
+ * 覆盖列的类型
  * <p>
- * 如果这个列用来存储序列化的 JSON 或是一些预计文本量比较大的数据，建议使用这个注解
+ * 目前优先级高于类型推断，但低于 Id 之类的声明
  */
 @Target({ElementType.FIELD})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface AsLongText {
+public @interface TypeOverride {
 
+    /**
+     * 列类型
+     *
+     * @return
+     */
+    String type();
+
+    /**
+     * 列长度
+     *
+     * @return
+     */
+    int length() default 0;
 }

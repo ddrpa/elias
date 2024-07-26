@@ -9,13 +9,18 @@ import cc.ddrpa.dorian.elias.annotation.GenerateTable;
 import cc.ddrpa.dorian.elias.annotation.Index;
 import cc.ddrpa.dorian.elias.annotation.types.AsLongText;
 import cc.ddrpa.dorian.elias.annotation.types.DefaultValue;
-import cc.ddrpa.dorian.elias.annotation.types.GivenLength;
+import cc.ddrpa.dorian.elias.annotation.types.Length;
+import cc.ddrpa.dorian.elias.annotation.types.TypeOverride;
 import cc.ddrpa.dorian.elias.generator.spec.ColumnSpec;
 import cc.ddrpa.dorian.elias.generator.spec.IndexSpec;
 import cc.ddrpa.dorian.elias.generator.spec.TableSpec;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
@@ -44,19 +49,13 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
 
     private static final Logger logger = LoggerFactory.getLogger(MySQLSchemaGenerator.class);
     private final Set<Class> classes = new HashSet<>(5);
-    private final VelocityEngine velocityEngine;
     private final Template template;
 
-    private final String packageName;
-    private String schemaName;
+    private String database;
     private boolean dropIfExists = true;
 
-
-    public MySQLSchemaGenerator(String packageName) {
-        super("");
-        this.packageName = packageName;
-        this.schemaName = schemaName;
-        velocityEngine = new VelocityEngine();
+    public MySQLSchemaGenerator() {
+        VelocityEngine velocityEngine = new VelocityEngine();
         velocityEngine.setProperty(RuntimeConstants.RESOURCE_LOADERS, "classpath");
         velocityEngine.setProperty("resource.loader.classpath.class",
             ClasspathResourceLoader.class.getName());
@@ -74,19 +73,26 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
         return this;
     }
 
-    public MySQLSchemaGenerator setSchemaName(String schemaName) {
-        this.schemaName = schemaName;
+    public MySQLSchemaGenerator setDatabase(String database) {
+        this.database = database;
         return this;
     }
 
-    public MySQLSchemaGenerator addAllAnnotatedClass() {
-        Reflections reflections = new Reflections(this.packageName);
+    /**
+     * 添加指定包下的所有带有 GenerateTable 注解的类
+     *
+     * @param packageName
+     * @return
+     */
+    public MySQLSchemaGenerator addAllAnnotatedClass(String packageName) {
+        Reflections reflections = new Reflections(packageName);
         Set<Class<?>> annotated = reflections.get(
             SubTypes.of(TypesAnnotated.with(GenerateTable.class)).asClass());
         annotated.forEach(clazz -> {
             GenerateTable generateTable = clazz.getAnnotation(GenerateTable.class);
             if (Objects.isNull(generateTable)) {
                 // 如果 DTO 类继承了需要生成表的实体类，那么它会被反射找出来，但是获取这个注解时为 null
+                // 不需要为这种 DTO 生成表
                 return;
             }
             if (!generateTable.enable()) {
@@ -99,13 +105,26 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
         return this;
     }
 
+    /**
+     * 添加一个特定的类
+     *
+     * @param clazz
+     * @param <T>
+     * @return
+     */
     public <T> MySQLSchemaGenerator addClass(Class<T> clazz) {
         classes.add(clazz);
         logger.info("Added class: {}", clazz.getName());
         return this;
     }
 
-    public MySQLSchemaGenerator setOutputFile(String outputFile) throws IOException {
+    /**
+     * 导出 SQL 文件
+     *
+     * @param outputFile
+     * @throws IOException
+     */
+    public void export(String outputFile) throws IOException {
         List<String> tableDSLList = classes.stream()
             .sorted(Comparator.comparing(Class::getSimpleName))
             .map(clazz -> {
@@ -120,7 +139,6 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
                 fos.write("\n".getBytes(StandardCharsets.UTF_8));
             }
         }
-        return this;
     }
 
     /**
@@ -132,7 +150,6 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
      */
     private <T> TableSpec processClass(Class<T> clazz) {
         TableSpec tableSpec = new TableSpec();
-//        tableSpec.setDatabase(this.schemaName);
         tableSpec.setName(getTableName(clazz));
         tableSpec.setDropIfExists(this.dropIfExists);
         // 处理类成员
@@ -196,6 +213,13 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
         if (field.isAnnotationPresent(EliasIgnore.class)) {
             return null;
         }
+        // 如果字段有 com.baomidou.mybatisplus.annotation.TableField 注解且 exist 为 false，忽略
+        if (field.isAnnotationPresent(com.baomidou.mybatisplus.annotation.TableField.class)) {
+            TableField tableField = field.getAnnotation(TableField.class);
+            if (!tableField.exist()) {
+                return null;
+            }
+        }
         ColumnSpec columnSpec = new ColumnSpec();
         // 如果字段有 com.baomidou.mybatisplus.annotation.TableId 注解，设置为主键
         if (field.isAnnotationPresent(TableId.class)) {
@@ -211,6 +235,13 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
         if (field.isAnnotationPresent(TableLogic.class)) {
             columnSpec.setDefaultValue("0");
         }
+        // 如果有 jakarta.validation.constraints.NotBlank, jakarta.validation.constraints.NotEmpty, jakarta.validation.constraints.NotNull 注解
+        // 设置为非空
+        if (field.isAnnotationPresent(NotNull.class) ||
+            field.isAnnotationPresent(NotEmpty.class) ||
+            field.isAnnotationPresent(NotBlank.class)) {
+            columnSpec.setNullable(false);
+        }
         // DefaultValue 注解修饰的属性
         if (field.isAnnotationPresent(DefaultValue.class)) {
             DefaultValue defaultValue = field.getAnnotation(DefaultValue.class);
@@ -218,7 +249,6 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
         }
         // 获取 column 的名称
         columnSpec.setName(getColumnName(field));
-        // 推断 column 的类型
         Pair<String, Integer> columnType = getColumnType(field);
         columnSpec.setType(columnType.getLeft());
         columnSpec.setLength(columnType.getRight());
@@ -232,17 +262,22 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
      * @return
      */
     private Pair<String, Integer> getColumnType(Field field) {
+        // 如果有 TypeOverride 注解，使用注解中的类型
+        if (field.isAnnotationPresent(TypeOverride.class)) {
+            TypeOverride typeOverrideAnnotation = field.getAnnotation(TypeOverride.class);
+            return Pair.of(typeOverrideAnnotation.type(), typeOverrideAnnotation.length());
+        }
         // 如果有 AsLongText 注解，使用 longtext
         if (field.isAnnotationPresent(AsLongText.class)) {
             return Pair.of("longtext", 0);
         }
-        // 如果有 GivenLength 注解
-        if (field.isAnnotationPresent(GivenLength.class)) {
-            GivenLength givenLength = field.getAnnotation(GivenLength.class);
-            if (givenLength.fixedLength()) {
-                return Pair.of("char", givenLength.length());
+        // 如果有 Length 注解
+        if (field.isAnnotationPresent(Length.class)) {
+            Length length = field.getAnnotation(Length.class);
+            if (length.fixedLength()) {
+                return Pair.of("char", length.length());
             } else {
-                return Pair.of("varchar", givenLength.length());
+                return Pair.of("varchar", length.length());
             }
         }
         // 如果是枚举类型

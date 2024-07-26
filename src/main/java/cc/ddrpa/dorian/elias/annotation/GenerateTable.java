@@ -10,14 +10,21 @@ import java.lang.annotation.Target;
 public @interface GenerateTable {
 
     /**
-     * 手动关闭表生成
+     * 可以手动关闭或开启表的生成
      *
      * @return
      */
     boolean enable() default true;
 
     /**
-     * 声明索引
+     * 表名前缀，例如 'tbl_'
+     *
+     * @return
+     */
+    String tablePrefix() default "";
+
+    /**
+     * 声明索引，和 Jakarta Persistence 的行为差不多
      *
      * @return
      */
