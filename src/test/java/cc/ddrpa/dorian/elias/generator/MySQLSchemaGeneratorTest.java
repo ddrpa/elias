@@ -9,6 +9,7 @@ class MySQLSchemaGeneratorTest {
     void generateTest() throws ClassNotFoundException, IOException {
         new MySQLSchemaGenerator()
             .enableDropIfExists()
+            .useJakartaPersistenceConstraints()
             .addAllAnnotatedClass("cc.ddrpa.dorian")
             .addClass(Class.forName("cc.ddrpa.dorian.playground.AccountSetting"))
             .export("./target/generateTest.sql");

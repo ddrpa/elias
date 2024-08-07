@@ -18,9 +18,6 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
@@ -33,6 +30,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.velocity.Template;
@@ -52,7 +52,8 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
     private final Template template;
 
     private String database;
-    private boolean dropIfExists = true;
+    private boolean dropIfExists = false;
+    private boolean useJakartaPersistenceConstraints = false;
 
     public MySQLSchemaGenerator() {
         VelocityEngine velocityEngine = new VelocityEngine();
@@ -68,8 +69,8 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
         return this;
     }
 
-    public MySQLSchemaGenerator disableDropIfExists() {
-        this.dropIfExists = false;
+    public MySQLSchemaGenerator useJakartaPersistenceConstraints() {
+        this.useJakartaPersistenceConstraints = true;
         return this;
     }
 
@@ -235,11 +236,12 @@ public class MySQLSchemaGenerator extends SchemaGenerator {
         if (field.isAnnotationPresent(TableLogic.class)) {
             columnSpec.setDefaultValue("0");
         }
-        // 如果有 jakarta.validation.constraints.NotBlank, jakarta.validation.constraints.NotEmpty, jakarta.validation.constraints.NotNull 注解
+        // 如果有 javax.validation.constraints.NotBlank, javax.validation.constraints.NotEmpty, javax.validation.constraints.NotNull 注解
         // 设置为非空
-        if (field.isAnnotationPresent(NotNull.class) ||
-            field.isAnnotationPresent(NotEmpty.class) ||
-            field.isAnnotationPresent(NotBlank.class)) {
+        if (useJakartaPersistenceConstraints &&
+            (field.isAnnotationPresent(NotNull.class) ||
+                field.isAnnotationPresent(NotEmpty.class) ||
+                field.isAnnotationPresent(NotBlank.class))) {
             columnSpec.setNullable(false);
         }
         // DefaultValue 注解修饰的属性

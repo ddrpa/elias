@@ -17,11 +17,40 @@ Elias 可以把 Java POJOs 转换成 MySQL Schema。
 
 项目仍在开发中，API 可以预期地会有调整，你可以查看单元测试中的实体类设计和生成代码了解目前的用法。
 
+项目可以通过 Maven SNAPSHOT 仓库访问。
+
+```xml
+  <repositories>
+      <repository>
+          <id>snapshots</id>
+          <url>https://s01.oss.sonatype.org/content/repositories/snapshots/</url>
+      </repository>
+  </repositories>
+```
+
+```sql
+drop table if exists `tbl_account`;
+create table `tbl_account` (
+  `id` int not null auto_increment
+      primary key,
+  `username` varchar(255) null,
+  `email_address` varchar(255) null,
+  `create_time` varchar(500) null,
+  `account_status` tinyint null,
+  `avatar` varchar(255) null
+);
+create unique index idx_unique_email_address on `tbl_account` (email_address);
+create index idx_username on `tbl_account` (username);
+create unique index idx_unique_username_email_address on `tbl_account` (username, email_address);
+```
+
 ![](./showcase.png)
 
-# Roadmap
+# 功能清单与 Roadmap
 
-- [x] 支持声明索引
+- [x] 支持 JPA 风格的索引声明
+- [x] 支持手动覆盖 SQL 类型声明
+- [x] 支持 com.baomidou.mybatisplus.annotation.TableId 声明
 - 更多列的控制选项
   - [ ] 支持 Jakarta Persistence API 注解
   - [ ] 支持 com.baomidou.mybatisplus.annotation.TableField 注解中的 JDBC 类型声明
