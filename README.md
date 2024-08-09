@@ -55,3 +55,6 @@ create unique index idx_unique_username_email_address on `tbl_account` (username
   - [ ] 支持 Jakarta Persistence API 注解
   - [ ] 支持 com.baomidou.mybatisplus.annotation.TableField 注解中的 JDBC 类型声明
 - [x] 输出美化
+- []  支持检查索引
+- [ ] 支持多数据源
+- [ ] 支持分表场景
