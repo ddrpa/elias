@@ -1,4 +1,4 @@
-package cc.ddrpa.dorian.elias.annotation;
+package cc.ddrpa.dorian.elias.core.annotation;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

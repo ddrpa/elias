@@ -1,14 +1,14 @@
-package cc.ddrpa.dorian.elias.spec;
+package cc.ddrpa.dorian.elias.core.spec;
 
 import static org.reflections.ReflectionUtils.Fields;
 
-import cc.ddrpa.dorian.elias.annotation.EliasTable;
-import cc.ddrpa.dorian.elias.annotation.EliasIgnore;
-import cc.ddrpa.dorian.elias.annotation.Index;
-import cc.ddrpa.dorian.elias.annotation.types.AsLongText;
-import cc.ddrpa.dorian.elias.annotation.types.DefaultValue;
-import cc.ddrpa.dorian.elias.annotation.types.Length;
-import cc.ddrpa.dorian.elias.annotation.types.TypeOverride;
+import cc.ddrpa.dorian.elias.core.annotation.EliasIgnore;
+import cc.ddrpa.dorian.elias.core.annotation.EliasTable;
+import cc.ddrpa.dorian.elias.core.annotation.Index;
+import cc.ddrpa.dorian.elias.core.annotation.types.CharLength;
+import cc.ddrpa.dorian.elias.core.annotation.types.DefaultValue;
+import cc.ddrpa.dorian.elias.core.annotation.types.TypeOverride;
+import cc.ddrpa.dorian.elias.core.annotation.types.UseText;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -39,7 +39,6 @@ public class SpecMaker {
      * 将 Java 类转换为 TableSpec
      *
      * @param clazz
-     * @param <T>
      * @return
      */
     public static TableSpec makeTableSpec(Class<?> clazz) {
@@ -68,6 +67,13 @@ public class SpecMaker {
         return tableSpec;
     }
 
+    /**
+     * 解析索引配置
+     *
+     * @param indexAnnotation
+     * @param columnNameSet
+     * @return
+     */
     private static IndexSpec processIndex(Index indexAnnotation, Set<String> columnNameSet) {
         String indexName;
         String columnList = indexAnnotation.columnList();
@@ -100,13 +106,23 @@ public class SpecMaker {
             .setColumnList(indexAnnotation.columnList());
     }
 
+    /**
+     * 将类的属性转换为列定义
+     *
+     * @param field
+     * @return
+     */
     private static ColumnSpec processField(Field field) {
-        logger.info("process field: {}", field.getName());
-        // 如果字段有 EliasIgnore 注解，忽略
+        logger.trace("process field: {}", field.getName());
+        /**
+         * 如果字段有 {@link EliasIgnore 注解 }，忽略
+         */
         if (field.isAnnotationPresent(EliasIgnore.class)) {
             return null;
         }
-        // 如果字段有 com.baomidou.mybatisplus.annotation.TableField 注解且 exist 为 false，忽略
+        /**
+         * 如果字段有 {@link com.baomidou.mybatisplus.annotation.TableField} 注解且 exist 为 false，忽略
+         */
         if (field.isAnnotationPresent(com.baomidou.mybatisplus.annotation.TableField.class)) {
             TableField tableField = field.getAnnotation(TableField.class);
             if (!tableField.exist()) {
@@ -114,7 +130,9 @@ public class SpecMaker {
             }
         }
         ColumnSpec columnSpec = new ColumnSpec();
-        // 如果字段有 com.baomidou.mybatisplus.annotation.TableId 注解，设置为主键
+        /**
+         * 如果字段有 {@link com.baomidou.mybatisplus.annotation.TableId} 注解，设置为主键
+         */
         if (field.isAnnotationPresent(TableId.class)) {
             columnSpec.setPrimaryKey(true);
             columnSpec.setNullable(false);
@@ -123,13 +141,19 @@ public class SpecMaker {
                 columnSpec.setAutoIncrement(true);
             }
         }
-        // 如果字段有 com.baomidou.mybatisplus.annotation.TableLogic 注解，设置 defaultValue 为 0
-        // 这一功能有待商榷
+        /**
+         * 如果字段有 {@link com.baomidou.mybatisplus.annotation.TableLogic} 注解，设置 defaultValue 为 0
+         * <p>
+         * NEED_CHECK 这一功能有待商榷，value 可以通过配置文件覆盖
+         */
         if (field.isAnnotationPresent(TableLogic.class)) {
             columnSpec.setDefaultValue("0");
         }
-        // 有 javax.validation.constraints.NotBlank, javax.validation.constraints.NotEmpty, javax.validation.constraints.NotNull 注解
-        // 设置为非空
+        /**
+         * 如果字段有 {@link javax.validation.constraints.NotBlank},
+         * {@link javax.validation.constraints.NotEmpty},
+         * {@link javax.validation.constraints.NotNull} 注解，设置为非空
+         */
         if (field.isAnnotationPresent(NotNull.class) ||
             field.isAnnotationPresent(NotEmpty.class) ||
             field.isAnnotationPresent(NotBlank.class)) {
@@ -142,9 +166,8 @@ public class SpecMaker {
         }
         // 获取 column 的名称
         columnSpec.setName(getColumnName(field));
-        Pair<String, Integer> columnType = getColumnType(field);
-        columnSpec.setType(columnType.getLeft());
-        columnSpec.setLength(columnType.getRight());
+        Pair<String, Long> columnType = getColumnType(field);
+        columnSpec.setColumnType(columnType.getLeft(), columnType.getRight());
         return columnSpec;
     }
 
@@ -154,120 +177,162 @@ public class SpecMaker {
      * @param field
      * @return
      */
-    private static Pair<String, Integer> getColumnType(Field field) {
-        // 如果有 TypeOverride 注解，使用注解中的类型
+    private static Pair<String, Long> getColumnType(Field field) {
+        /**
+         * 如果有 {@link TypeOverride} 注解，使用注解中的类型
+         */
         if (field.isAnnotationPresent(TypeOverride.class)) {
             TypeOverride typeOverrideAnnotation = field.getAnnotation(TypeOverride.class);
-            return Pair.of(typeOverrideAnnotation.type(), typeOverrideAnnotation.length());
+            String overrideType = typeOverrideAnnotation.type().toLowerCase();
+            Long overrideLength = typeOverrideAnnotation.length();
+            // FEAT_NEEDED 这里没有检查长度是否合法，类型是否支持
+            return Pair.of(overrideType, overrideLength);
         }
-        // 如果有 AsLongText 注解，使用 longtext
-        if (field.isAnnotationPresent(AsLongText.class)) {
-            return Pair.of("longtext", 0);
-        }
-        // 如果有 Length 注解
-        if (field.isAnnotationPresent(Length.class)) {
-            Length length = field.getAnnotation(Length.class);
-            if (length.fixedLength()) {
-                return Pair.of("char", length.length());
+        /**
+         * 如果有 {@link UseText} 注解，根据估算的长度选择类型
+         */
+        if (field.isAnnotationPresent(UseText.class)) {
+            UseText useTextAnnotation = field.getAnnotation(UseText.class);
+            if (useTextAnnotation.estimated() < 16384L) {
+                return Pair.of("varchar",
+                    useTextAnnotation.estimated() > 0L ? useTextAnnotation.estimated() : 16383L);
+            } else if (useTextAnnotation.estimated() < 65536L) {
+                return Pair.of("text", null);
+            } else if (useTextAnnotation.estimated() < 16_777_216L) {
+                return Pair.of("mediumtext", null);
             } else {
-                return Pair.of("varchar", length.length());
+                return Pair.of("longtext", null);
+            }
+        }
+        /**
+         * 如果有 {@link CharLength} 注解，根据注解中的长度选择类型
+         */
+        if (field.isAnnotationPresent(CharLength.class)) {
+            CharLength charLengthAnnotation = field.getAnnotation(CharLength.class);
+            long estimatedLength =
+                charLengthAnnotation.length() > 0 ? charLengthAnnotation.length() : 255L;
+            if (estimatedLength > 65536L) {
+                return Pair.of("text", null);
+            } else if (charLengthAnnotation.fixed()) {
+                return Pair.of("char", charLengthAnnotation.length());
+            } else {
+                return Pair.of("varchar", charLengthAnnotation.length());
             }
         }
         // 如果是枚举类型
         if (field.getType().isEnum()) {
-            return Pair.of("tinyint", 0);
+            return Pair.of("tinyint", 4L);
         }
         String fieldType = field.getType().getName();
         // 处理 java.time.* 下的一些类型
         if (fieldType.equalsIgnoreCase("java.time.LocalDate")) {
-            return Pair.of("date", 0);
+            return Pair.of("date", null);
         }
         if (fieldType.equalsIgnoreCase("java.time.LocalDateTime")) {
-            return Pair.of("datetime", 0);
+            return Pair.of("datetime", null);
         }
         // see https://docs.oracle.com/cd/E19501-01/819-3659/gcmaz/
         if (field.getType().isArray()) {
             switch (field.getType().getSimpleName()) {
                 case "byte[]":
                 case "java.lang.Byte[]":
-                    return Pair.of("blob", 64000);
+                    return Pair.of("blob", 64000L);
                 case "char[]":
                 case "java.lang.Character[]":
-                    return Pair.of("text", 64000);
+                    // override，拉到上限，即 65535 个字符
+                    return Pair.of("text", null);
             }
         }
         switch (fieldType) {
             case "boolean":
             case "java.lang.Boolean":
-                return Pair.of("tinyint", 1);
+                return Pair.of("tinyint", 1L);
             case "int":
             case "java.lang.Integer":
-                return Pair.of("int", 0);
+                return Pair.of("int", null);
             case "long":
             case "java.lang.Long":
             case "java.math.BigInteger":
-                return Pair.of("bigint", 0);
+                // override，使用长整型存储雪花 ID 时，长度通常为 19 个字符
+                return Pair.of("bigint", 20L);
             case "float":
             case "java.lang.Float":
-                return Pair.of("float", 0);
+                return Pair.of("float", null);
             case "double":
             case "java.lang.Double":
-                return Pair.of("double", 0);
+                return Pair.of("double", null);
             case "short":
             case "java.lang.Short":
             case "byte":
             case "java.lang.Byte":
-                return Pair.of("smallint", 0);
+                return Pair.of("smallint", null);
             case "java.lang.Number":
             case "java.math.BigDecimal":
-                return Pair.of("decimal", 38);
+                return Pair.of("decimal", 38L);
             case "Date":
             case "java.sql.Timestamp":
-                return Pair.of("datetime", 0);
+                return Pair.of("datetime", null);
             case "char":
             case "java.lang.Character":
-                return Pair.of("char", 1);
+                return Pair.of("char", 1L);
             case "java.sql.Blob":
-                return Pair.of("blob", 64000);
+                return Pair.of("blob", 64000L);
             case "java.sql.Clob":
-                return Pair.of("text", 64000);
+                // override，拉到上限，即 65535 个字符
+                return Pair.of("text", null);
             case "java.sql.Date":
-                return Pair.of("date", 0);
+                return Pair.of("date", null);
             case "java.sql.Time":
-                return Pair.of("time", 0);
+                return Pair.of("time", null);
             default:
-                return Pair.of("varchar", 255);
+                return Pair.of("varchar", 255L);
         }
     }
 
-
+    /**
+     * 驼峰转蛇形
+     *
+     * @param text
+     * @return
+     */
     private static String camelCaseToSnakeCase(String text) {
         Matcher m = Pattern.compile("(?<=[a-z])[A-Z]").matcher(text);
         return m.replaceAll(match -> "_" + match.group().toLowerCase());
     }
 
-    private static String getTableName(Class clazz) {
+    /**
+     * 推断表名
+     *
+     * @param clazz
+     * @return
+     */
+    private static String getTableName(Class<?> clazz) {
         if (clazz.isAnnotationPresent(TableName.class)) {
-            TableName tableName = (TableName) clazz.getAnnotation(TableName.class);
-            if (StringUtils.isNoneBlank(tableName.value())) {
-                return tableName.value();
+            TableName tableNameAnnotation = (TableName) clazz.getAnnotation(TableName.class);
+            if (StringUtils.isNoneBlank(tableNameAnnotation.value())) {
+                return tableNameAnnotation.value();
             }
         } else if (clazz.isAnnotationPresent(EliasTable.class)) {
-            EliasTable eliasTable = (EliasTable) clazz.getAnnotation(
-                EliasTable.class);
-            if (StringUtils.isNoneBlank(eliasTable.tablePrefix())) {
-                return eliasTable.tablePrefix() + camelCaseToSnakeCase(
+            EliasTable eliasTableAnnotation = (EliasTable) clazz.getAnnotation(EliasTable.class);
+            if (StringUtils.isNoneBlank(eliasTableAnnotation.tablePrefix())) {
+                return eliasTableAnnotation.tablePrefix() + camelCaseToSnakeCase(
                     clazz.getSimpleName()).toLowerCase();
             }
         }
         return camelCaseToSnakeCase(clazz.getSimpleName()).toLowerCase();
     }
 
+    /**
+     * 推断列名
+     *
+     * @param field
+     * @return
+     */
     private static String getColumnName(Field field) {
         if (field.isAnnotationPresent(TableField.class)) {
-            TableField tableField = field.getAnnotation(TableField.class);
-            if (StringUtils.isNoneBlank(tableField.value())) {
-                return tableField.value();
+            TableField tableFieldAnnotation = field.getAnnotation(TableField.class);
+            if (StringUtils.isNoneBlank(tableFieldAnnotation.value())) {
+                return tableFieldAnnotation.value();
             }
         }
         return camelCaseToSnakeCase(field.getName());

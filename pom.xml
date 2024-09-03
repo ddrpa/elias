@@ -1,15 +1,13 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://maven.apache.org/POM/4.0.0"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>cc.ddrpa.dorian.elias</groupId>
   <artifactId>elias-pom</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
-  <packaging>pom</packaging>
   <name>${project.groupId}:${project.artifactId}</name>
-  <description>Turns Java POJOs into MySQL Schemas</description>
-  <url>https://github.com/ddrpa/elias</url>
+  <version>2.0.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
 
   <licenses>
     <license>
@@ -17,19 +15,18 @@
       <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
     </license>
   </licenses>
+
+  <url>https://github.com/ddrpa/elias</url>
+  <description>Turns Java POJOs into MySQL Schemas</description>
+
   <developers>
     <developer>
-      <name>yufan</name>
       <email>yufan@live.com</email>
+      <name>yufan</name>
       <organization>yufanonsoftware.me</organization>
       <organizationUrl>https://yufanonsoftware.me</organizationUrl>
     </developer>
   </developers>
-  <modules>
-    <module>elias-spring-boot-starter</module>
-    <module>elias-core</module>
-    <module>elias-generator</module>
-  </modules>
   <scm>
     <connection>scm:git:git://github.com/ddrpa/elias.git</connection>
     <developerConnection>scm:git:ssh://github.com:ddrpa/elias.git
@@ -37,19 +34,11 @@
     <url>http://github.com/ddrpa/elias/tree/master</url>
   </scm>
 
-  <distributionManagement>
-    <snapshotRepository>
-      <id>ossrh</id>
-      <url>https://s01.oss.sonatype.org/content/repositories/snapshots
-      </url>
-    </snapshotRepository>
-    <repository>
-      <id>ossrh</id>
-      <url>
-        https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/
-      </url>
-    </repository>
-  </distributionManagement>
+  <modules>
+    <module>elias-spring-boot-starter</module>
+    <module>elias-core</module>
+    <module>elias-generator</module>
+  </modules>
 
   <properties>
     <java.version>11</java.version>
@@ -58,17 +47,26 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
+  <distributionManagement>
+    <repository>
+      <id>ossrh</id>
+      <url>
+        https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/
+      </url>
+    </repository>
+    <snapshotRepository>
+      <id>ossrh</id>
+      <url>https://s01.oss.sonatype.org/content/repositories/snapshots
+      </url>
+    </snapshotRepository>
+  </distributionManagement>
+
   <dependencyManagement>
     <dependencies>
       <dependency>
         <groupId>org.reflections</groupId>
         <artifactId>reflections</artifactId>
         <version>0.10.2</version>
-      </dependency>
-      <dependency>
-        <groupId>org.javassist</groupId>
-        <artifactId>javassist</artifactId>
-        <version>3.30.2-GA</version>
       </dependency>
       <dependency>
         <groupId>jakarta.validation</groupId>
@@ -101,53 +99,47 @@
         <version>2.0.13</version>
       </dependency>
       <dependency>
-        <groupId>org.projectlombok</groupId>
-        <artifactId>lombok</artifactId>
-        <version>1.18.34</version>
-      </dependency>
-      <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-simple</artifactId>
-        <version>2.0.13</version>
         <scope>test</scope>
+        <version>2.0.13</version>
       </dependency>
       <dependency>
         <groupId>org.junit.jupiter</groupId>
         <artifactId>junit-jupiter-api</artifactId>
-        <version>5.10.3</version>
         <scope>test</scope>
+        <version>5.10.3</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
-
   <build>
     <plugins>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
-        <version>2.2.1</version>
         <executions>
           <execution>
-            <id>attach-sources</id>
             <goals>
               <goal>jar-no-fork</goal>
             </goals>
+            <id>attach-sources</id>
           </execution>
         </executions>
+        <groupId>org.apache.maven.plugins</groupId>
+        <version>2.2.1</version>
       </plugin>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-gpg-plugin</artifactId>
-        <version>1.5</version>
         <executions>
           <execution>
-            <id>sign-artifacts</id>
-            <phase>verify</phase>
             <goals>
               <goal>sign</goal>
             </goals>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
           </execution>
         </executions>
+        <groupId>org.apache.maven.plugins</groupId>
+        <version>1.5</version>
       </plugin>
     </plugins>
   </build>

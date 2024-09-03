@@ -1,8 +1,8 @@
 package cc.ddrpa.dorian.elias.playground;
 
-import cc.ddrpa.dorian.elias.annotation.EliasTable;
-import cc.ddrpa.dorian.elias.annotation.EliasIgnore;
-import cc.ddrpa.dorian.elias.annotation.types.AsLongText;
+import cc.ddrpa.dorian.elias.core.annotation.EliasIgnore;
+import cc.ddrpa.dorian.elias.core.annotation.EliasTable;
+import cc.ddrpa.dorian.elias.core.annotation.types.UseText;
 
 @EliasTable
 public class AccountSetting extends BaseEntity {
@@ -12,6 +12,6 @@ public class AccountSetting extends BaseEntity {
     @EliasIgnore
     protected String doNotSaveInDB;
 
-    @AsLongText
+    @UseText
     private String remark;
 }

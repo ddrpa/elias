@@ -1,2 +1,2 @@
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-  cc.ddrpa.dorian.elias.configuration.EliasAutoConfiguration
+  cc.ddrpa.dorian.elias.spring.autoconfigure.EliasAutoConfiguration

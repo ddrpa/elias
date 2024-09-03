@@ -1,0 +1,1 @@
+alter table `${table}` add column `${c.name}` ${c.columnType}#if($c.nullable) null#else not null#end#if($c.defaultValue) default '${c.defaultValue}'#end;

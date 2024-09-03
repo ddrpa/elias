@@ -1,15 +1,16 @@
 package cc.ddrpa.dorian.elias.playground;
 
-import cc.ddrpa.dorian.elias.annotation.EliasTable;
-import cc.ddrpa.dorian.elias.annotation.Index;
-import cc.ddrpa.dorian.elias.annotation.types.TypeOverride;
+import cc.ddrpa.dorian.elias.core.annotation.EliasTable;
+import cc.ddrpa.dorian.elias.core.annotation.Index;
+import cc.ddrpa.dorian.elias.core.annotation.types.TypeOverride;
+import cc.ddrpa.dorian.elias.core.annotation.types.UseText;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import java.time.LocalDate;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
-import java.time.LocalDate;
 
 @EliasTable(
     enable = true,
@@ -33,4 +34,6 @@ public class Account {
     private LocalDate createTime;
     private AccountStatus accountStatus;
     private byte[] avatar;
+    @UseText
+    private String biography;
 }

@@ -1,60 +1,187 @@
-# Elias turns Java POJOs into MySQL Schemas
+# Elias
 
-Elias 可以把 Java POJOs 转换成 MySQL Schema。
+隆重介绍 Elias，可以：
 
-笔者平常参与的 Java 项目使用 Mybatis-plus 作为 ORM 层。通常的工作路径是先创建数据库 schema，然后用 Mybatis-plus 的代码生成器生成 Java POJOs 和相关的 DAO 层对象。
+- 把 Java POJOs 类转换成 MySQL Schema DDL
+- 在 Spring Boot 项目启动时检查数据库 schema 是否和 Java POJOs 一致（并自动应用修改）
 
-可能是受了 JPA 影响，偏好「充血模型」的缘故，笔者不太喜欢这个工作流程：
+使用 Mybatis-plus 作为 ORM 层的 Java 项目，通常的工作路径是先创建数据库 schema，然后用代码生成器生成 Java POJOs 和相关的 DAO 层对象。可能是受了 JPA 影响，偏好「充血模型」的缘故，笔者不太喜欢这个工作流程：
 
-1. 笔者习惯先编写 MVP 证实业务思路是可行的，这个时候持久层往往还在 H2 上，之后会迁移到 MySQL 或 Postgres，有的时候随着架构设计的演进，还会发生迁移到 NoSQL 上的情况；
-2. 在开发早期阶段，互动最为频繁，改动最多的是 Java POJOs（和相应的 DTOs、VOs），笔者也会把一些简单的验证逻辑写在 POJOs 中，从 schema 重新生成代码就会导致一切重新来过；
-3. 我们只在 RC+ 的版本中使用 Liquibase 控制 schema 的变更，团队成员如果合作一个模块，在没有协调好的情况下只有 Git 控制的 Java 代码能够拯救他们；
-4. 笔者有时候会忘了应该在 MySQL 中使用什么类型<del>（最真实的理由）</del>；
+1. 笔者习惯先编写 MVP 证实业务思路是可行的，这个时候持久层往往还在 H2 上，之后会迁移到 MySQL，有的时候随着设计的演进，还会迁移到 NoSQL 上；
+2. 开发早期阶段改动最多的是 Java POJOs（和相应的 DTOs、VOs），笔者也会把一些简单的逻辑写在 POJOs 中，重新生成代码就会覆盖这些内容；
+3. 笔者的团队只在具有一定规模的项目的 RC+ 分支中使用 Liquibase 控制 schema 的变更，团队成员如果合作一个模块，在没有协调好的情况下只有 Git 控制的 Java 代码能够拯救他们；
+4. <del>笔者有时候会忘了应该在 MySQL 中为列设置什么类型；</del>
 
-所以笔者编写了这个小工具，可以将指定的 Java 类转换为 MySQL 建表语句。当然，这样的工作流程也会有些缺点，比如你只能靠 diff 工具手动比较后编写 Liquibase 的变更文件了。
+## HowTo
 
-# HowTo
+- 你需要使用 JDK 11+ 来运行 Elias；
+- Elias 设计为配合 Mybatis-plus 使用，缺失这项依赖也许会产生一些问题；
 
-项目仍在开发中，API 可以预期地会有调整，你可以查看单元测试中的实体类设计和生成代码了解目前的用法。
+> 项目仍在开发中，API 可以预期地会有调整（尽管不太有什么需要互动的地方），你可以查看单元测试中的实体类设计和生成代码了解目前的用法。
 
-项目可以通过 Maven SNAPSHOT 仓库访问。
+Elias 暂时还没有发布正式版，你可以通过 Maven SNAPSHOT 仓库访问，目前的最新版本为 `2.0.0-SNAPSHOT`。
 
 ```xml
-  <repositories>
-      <repository>
-          <id>snapshots</id>
-          <url>https://s01.oss.sonatype.org/content/repositories/snapshots/</url>
-      </repository>
-  </repositories>
+<repositories>
+    <repository>
+        <id>snapshots</id>
+        <url>https://s01.oss.sonatype.org/content/repositories/snapshots/</url>
+    </repository>
+</repositories>
 ```
+
+### 使用 Elias 生成数据库建表语句
+
+Elias 会扫描项目中的实体类，生成对应的 MySQL 建表语句，支持：
+
+- 推断设置列的类型、长度
+- 设置列是否可为空
+- 设置默认值
+- 声明并创建索引
+
+在项目中添加如下依赖：
+
+```xml
+<dependency>
+    <groupId>cc.ddrpa.dorian.elias</groupId>
+    <artifactId>elias-generator</artifactId>
+    <version>${elias.version}</version>
+</dependency>
+```
+
+你需要显式地标注哪些实体类需要受到 Elias 的关注：
+
+```java
+@EliasTable(
+    enable = true,
+    indexes = {
+        @Index(columnList = "email_address", unique = true),
+        @Index(columnList = "username"),
+        @Index(columnList = "username, email_address", unique = true),
+    }
+)
+@TableName("tbl_account")
+public class Account {
+    @TableId(value = "id", type = IdType.AUTO)
+    private Integer id;
+    @TableField("username")
+    @NotNull
+    private String name;
+    @NotBlank
+    private String emailAddress;
+    @TypeOverride(type = "varchar", length = 500)
+    private LocalDate createTime;
+    private AccountStatus accountStatus;
+    private byte[] avatar;
+    @UseText
+    private String biography;
+}
+```
+
+注解的具体含义可见其他章节，总之，通过执行简单的命令：
+
+```java
+new SchemaFactory()
+    .dropIfExists(true)
+    .addAllAnnotatedClass("cc.ddrpa.dorian")
+    .export("./target/generateTest.sql");
+```
+
+可以得到这样的 SQL 语句：
 
 ```sql
 drop table if exists `tbl_account`;
 create table `tbl_account` (
-  `id` int not null auto_increment
-      primary key,
-  `username` varchar(255) null,
-  `email_address` varchar(255) null,
-  `create_time` varchar(500) null,
-  `account_status` tinyint null,
-  `avatar` varchar(255) null
+   `id` int not null auto_increment
+       primary key,
+   `username` varchar(255) not null,
+   `email_address` varchar(255) not null,
+   `create_time` varchar(500) null,
+   `account_status` tinyint(4) null,
+   `avatar` blob(64000) null,
+   `biography` varchar(16383) null
 );
 create unique index idx_unique_email_address on `tbl_account` (email_address);
 create index idx_username on `tbl_account` (username);
 create unique index idx_unique_username_email_address on `tbl_account` (username, email_address);
 ```
 
-![](./showcase.png)
+### 使用 Elias-Spring-Boot-Starter 在项目启动时检查数据库 schema
 
-# 功能清单与 Roadmap
+- 如果找不到对应实体类的表，输出建表 SQL 语句
+- 如果找不到对应实体类属性的列，输出增加列 SQL 语句
+- 如果实体类中的属性与表中列的属性不能匹配，输出修改 SQL 语句
+- 在满足条件的情况下自动应用修改
 
-- [x] 支持 JPA 风格的索引声明
-- [x] 支持手动覆盖 SQL 类型声明
-- [x] 支持 com.baomidou.mybatisplus.annotation.TableId 声明
+在项目中添加如下依赖：
+
+```xml
+<dependency>
+  <groupId>cc.ddrpa.dorian.elias</groupId>
+  <artifactId>elias-spring-boot-starter</artifactId>
+  <version>${elias.version}</version>
+</dependency>
+```
+
+在 application.yaml 中添加配置：
+
+```yaml
+elias:
+    validate:
+        enable: true # 启用检查
+        scan:
+            includes: # 在这些路径下寻找 EliasTable 标注的类 
+                - cc.ddrpa.virke
+        stop-on-mismatch: false # 如果 schema 不匹配，是否要停止应用
+        auto-fix: false # 如果 schema 不匹配，是否要自动修复
+```
+
+在 `elias.validate.scan.includes` 中指定的包路径下，Elias 会寻找标注了 `@EliasTable` 的类，然后检查数据库 schema 是否和这些类的定义一致。其他配置保持默认的情况下，Elias 会在 Spring Boot 项目启动时输出类似这样的日志：
+
+```log
+2024-09-04 17:03:36 [main] INFO  c.d.d.e.s.a.EliasAutoConfiguration - 
+ _____ _ _           
+|  ___| (_)          
+| |__ | |_  __ _ ___ 
+|  __|| | |/ _` / __|
+| |___| | | (_| \__ \
+\____/|_|_|\__,_|___/
+              2.0.0-SNAPSHOT
+
+2024-09-04 17:03:36 [main] WARN  c.d.d.elias.spring.SchemaChecker - Expect column `create_user` in table `tbl_account` but not found.
+Recommending fix with:
+alter table `tbl_account` add column `create_user` bigint(20) null;
+
+2024-09-04 17:03:36 [main] WARN  c.d.d.elias.spring.SchemaChecker - Column `quantity` in table `tbl_equipment` has specification mismatch:
+* Column type not match: expected 'int', actual 'varchar(255)'
+* Default value not match: expected '0', actual <null>
+Auto-fix is not recommended due to:
+* Reducing the size of a data type—like converting BIGINT to INT or DATETIME to DATE can cause truncation or loss of precision.
+Ensure all values fit within the new constraints and try:
+alter table `tbl_equipment` modify column `quantity` int default '0';
+
+2024-09-04 17:03:36 [main] WARN  c.d.d.elias.spring.SchemaChecker - Expect table `tbl_maintenance_plan` but not found.
+Recommending fix with:
+create table `tbl_maintenance_plan` (
+  `id` bigint(20) not null
+      primary key,
+  `device` varchar(255) null,
+);
+```
+
+## Java POJOs 属性与数据库元素的转换规则
+
+// TODO
+
+## Schema 检查与 auto-fix
+
+// TODO
+
+## Roadmap
+
 - 更多列的控制选项
-  - [ ] 支持 Jakarta Persistence API 注解
-  - [ ] 支持 com.baomidou.mybatisplus.annotation.TableField 注解中的 JDBC 类型声明
-- [x] 输出美化
-- []  支持检查索引
+    - [ ] 支持 Jakarta Persistence API 注解
+    - [ ] 支持 com.baomidou.mybatisplus.annotation.TableField 注解中的 JDBC 类型声明
+- [ ] 支持检查索引
 - [ ] 支持多数据源
 - [ ] 支持分表场景

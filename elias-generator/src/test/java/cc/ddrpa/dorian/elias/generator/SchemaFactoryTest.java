@@ -3,12 +3,12 @@ package cc.ddrpa.dorian.elias.generator;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
-class MySQLSchemaGeneratorTest {
+class SchemaFactoryTest {
 
     @Test
     void generateTest() throws ClassNotFoundException, IOException {
-        new MySQLSchemaGenerator()
-            .enableDropIfExists()
+        new SchemaFactory()
+            .dropIfExists(true)
             .addAllAnnotatedClass("cc.ddrpa.dorian")
             .addClass(Class.forName("cc.ddrpa.dorian.elias.playground.AccountSetting"))
             .export("./target/generateTest.sql");
