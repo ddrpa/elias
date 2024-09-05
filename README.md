@@ -12,14 +12,12 @@
 3. 笔者的团队只在具有一定规模的项目的 RC+ 分支中使用 Liquibase 控制 schema 的变更，团队成员如果合作一个模块，在没有协调好的情况下只有 Git 控制的 Java 代码能够拯救他们；
 4. <del>笔者有时候会忘了应该在 MySQL 中为列设置什么类型；</del>
 
-## HowTo
+## How-To
 
 - 你需要使用 JDK 11+ 来运行 Elias；
 - Elias 设计为配合 Mybatis-plus 使用，缺失这项依赖也许会产生一些问题；
 
-> 项目仍在开发中，API 可以预期地会有调整（尽管不太有什么需要互动的地方），你可以查看单元测试中的实体类设计和生成代码了解目前的用法。
-
-Elias 暂时还没有发布正式版，你可以通过 Maven SNAPSHOT 仓库访问，目前的最新版本为 `2.0.0-SNAPSHOT`。
+Elias 目前的版本为 `2.0.0`，你也可以通过 Maven SNAPSHOT 仓库访问 SNAPSHOT 版本。
 
 ```xml
 <repositories>
@@ -49,7 +47,17 @@ Elias 会扫描项目中的实体类，生成对应的 MySQL 建表语句，支�
 </dependency>
 ```
 
-你需要显式地标注哪些实体类需要受到 Elias 的关注：
+使用如下语句，Elias 会查找使用 `cc.ddrpa.dorian.elias.core.annotation.EliasTable` 或 `com.baomidou.mybatisplus.annotation.TableName` 注解标注的实体类。
+
+```java
+new SchemaFactory()
+    .dropIfExists(true)
+    .addAllAnnotatedClass("cc.ddrpa.dorian")
+    .useAnnotation(com.baomidou.mybatisplus.annotation.TableName.class)
+    .export("./target/generateTest.sql");
+```
+
+在实体类中，你可以使用 `cc.ddrpa.dorian.elias.core.annotation.EliasTable` 注解来声明表需要建立的索引，也可以使用其他一些注解来声明列的名称和类型。
 
 ```java
 @EliasTable(
@@ -78,16 +86,7 @@ public class Account {
 }
 ```
 
-注解的具体含义可见其他章节，总之，通过执行简单的命令：
-
-```java
-new SchemaFactory()
-    .dropIfExists(true)
-    .addAllAnnotatedClass("cc.ddrpa.dorian")
-    .export("./target/generateTest.sql");
-```
-
-可以得到这样的 SQL 语句：
+最终得到这样的 SQL 语句：
 
 ```sql
 drop table if exists `tbl_account`;
@@ -127,16 +126,18 @@ create unique index idx_unique_username_email_address on `tbl_account` (username
 
 ```yaml
 elias:
-    validate:
-        enable: true # 启用检查
-        scan:
-            includes: # 在这些路径下寻找 EliasTable 标注的类 
-                - cc.ddrpa.virke
-        stop-on-mismatch: false # 如果 schema 不匹配，是否要停止应用
-        auto-fix: false # 如果 schema 不匹配，是否要自动修复
+  validate:
+    enable: true # 启用检查
+    scan:
+      # 为 com.baomidou.mybatisplus.annotation.TableName 注解标注的类也启用支持
+      accept-mybatis-plus-table-name-annotation: true
+      includes: # 在这些路径下寻找 EliasTable 标注的类 
+        - cc.ddrpa.virke
+    stop-on-mismatch: false # 如果 schema 不匹配，是否要停止应用
+    auto-fix: false # 如果 schema 不匹配，是否要自动修复
 ```
 
-在 `elias.validate.scan.includes` 中指定的包路径下，Elias 会寻找标注了 `@EliasTable` 的类，然后检查数据库 schema 是否和这些类的定义一致。其他配置保持默认的情况下，Elias 会在 Spring Boot 项目启动时输出类似这样的日志：
+在 `elias.validate.scan.includes` 中指定的包路径下，Elias 会寻找符合搜索要求的实体类，然后检查数据库 schema 是否和这些类的定义一致。其他配置保持默认的情况下，Elias 会在 Spring Boot 项目启动时输出类似这样的日志，可以看到其给出了创建表、创建 / 修改列的 SQL 建议，如果开启了 `elias.validate.auto-fix`，Elias 会尝试执行其中一部分 SQL。
 
 ```log
 2024-09-04 17:03:36 [main] INFO  c.d.d.e.s.a.EliasAutoConfiguration - 
@@ -146,7 +147,7 @@ elias:
 |  __|| | |/ _` / __|
 | |___| | | (_| \__ \
 \____/|_|_|\__,_|___/
-              2.0.0-SNAPSHOT
+              2.0.0
 
 2024-09-04 17:03:36 [main] WARN  c.d.d.elias.spring.SchemaChecker - Expect column `create_user` in table `tbl_account` but not found.
 Recommending fix with:

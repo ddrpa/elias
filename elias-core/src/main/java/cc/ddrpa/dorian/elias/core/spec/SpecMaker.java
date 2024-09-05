@@ -55,10 +55,10 @@ public class SpecMaker {
         tableSpec.setColumns(columns);
         // 处理索引定义
         EliasTable eliasTableAnnotation = clazz.getAnnotation(EliasTable.class);
-        Set<String> columnNameSet = columns.stream()
-            .map(ColumnSpec::getName)
-            .collect(Collectors.toSet());
         if (eliasTableAnnotation != null && eliasTableAnnotation.indexes().length > 0) {
+            Set<String> columnNameSet = columns.stream()
+                .map(ColumnSpec::getName)
+                .collect(Collectors.toSet());
             List<IndexSpec> indexSpecs = Arrays.stream(eliasTableAnnotation.indexes())
                 .map(annotation -> processIndex(annotation, columnNameSet))
                 .collect(Collectors.toList());
@@ -308,12 +308,12 @@ public class SpecMaker {
      */
     private static String getTableName(Class<?> clazz) {
         if (clazz.isAnnotationPresent(TableName.class)) {
-            TableName tableNameAnnotation = (TableName) clazz.getAnnotation(TableName.class);
+            TableName tableNameAnnotation = clazz.getAnnotation(TableName.class);
             if (StringUtils.isNoneBlank(tableNameAnnotation.value())) {
                 return tableNameAnnotation.value();
             }
         } else if (clazz.isAnnotationPresent(EliasTable.class)) {
-            EliasTable eliasTableAnnotation = (EliasTable) clazz.getAnnotation(EliasTable.class);
+            EliasTable eliasTableAnnotation = clazz.getAnnotation(EliasTable.class);
             if (StringUtils.isNoneBlank(eliasTableAnnotation.tablePrefix())) {
                 return eliasTableAnnotation.tablePrefix() + camelCaseToSnakeCase(
                     clazz.getSimpleName()).toLowerCase();

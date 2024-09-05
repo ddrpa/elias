@@ -5,6 +5,7 @@ import cc.ddrpa.dorian.elias.core.spec.SpecMaker;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -18,10 +19,7 @@ import org.slf4j.LoggerFactory;
 public class SchemaFactory {
 
     private final Logger logger = LoggerFactory.getLogger(SchemaFactory.class);
-    /**
-     * 单独添加的类
-     */
-    private final Set<Class<?>> separatelyAddedClasses = new HashSet<>(5);
+    private final Set<Class<?>> classes = new HashSet<>(5);
     private final EntitySearcher entitySearcher = new EntitySearcher();
     private boolean dropIfExists = false;
 
@@ -31,13 +29,13 @@ public class SchemaFactory {
     }
 
     /**
-     * 添加指定包下的所有带有 EliasTable 注解的类
+     * 添加指定包下的所有符合条件的类
      *
-     * @param packageName
+     * @param packageRef
      * @return
      */
-    public SchemaFactory addAllAnnotatedClass(String packageName) {
-        entitySearcher.addPackage(packageName);
+    public SchemaFactory addPackage(String packageRef) {
+        entitySearcher.addPackage(packageRef);
         return this;
     }
 
@@ -49,7 +47,19 @@ public class SchemaFactory {
      * @return
      */
     public <T> SchemaFactory addClass(Class<T> clazz) {
-        separatelyAddedClasses.add(clazz);
+        classes.add(clazz);
+        return this;
+    }
+
+    /**
+     * 额外搜索使用指定注解的类
+     *
+     * @param annotationClass
+     * @param <A>
+     * @return
+     */
+    public <A extends Annotation> SchemaFactory useAnnotation(Class<A> annotationClass) {
+        entitySearcher.useAnnotation(annotationClass);
         return this;
     }
 
@@ -60,8 +70,8 @@ public class SchemaFactory {
      * @throws IOException
      */
     public void export(String outputFile) throws IOException {
-        separatelyAddedClasses.addAll(entitySearcher.search());
-        List<String> tableDSLList = separatelyAddedClasses.stream()
+        classes.addAll(entitySearcher.search());
+        List<String> tableDSLList = classes.stream()
             .sorted(Comparator.comparing(Class::getSimpleName))
             .map(clazz -> {
                 logger.trace("Processing class: {}", clazz.getName());

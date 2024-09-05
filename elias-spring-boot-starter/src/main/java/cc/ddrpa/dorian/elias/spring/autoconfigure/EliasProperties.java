@@ -69,6 +69,10 @@ public class EliasProperties {
          * 需要指定路径下的 Java class
          */
         private List<String> includes = new ArrayList<>(1);
+        /**
+         * 如果类使用 {@link com.baomidou.mybatisplus.annotation.TableName} 修饰，也会被记录
+         */
+        private Boolean acceptMybatisPlusTableNameAnnotation = true;
 
         public List<String> getIncludes() {
             return includes;
@@ -76,6 +80,16 @@ public class EliasProperties {
 
         public ScanProperties setIncludes(List<String> includes) {
             this.includes = includes;
+            return this;
+        }
+
+        public Boolean getAcceptMybatisPlusTableNameAnnotation() {
+            return acceptMybatisPlusTableNameAnnotation;
+        }
+
+        public ScanProperties setAcceptMybatisPlusTableNameAnnotation(
+            Boolean acceptMybatisPlusTableNameAnnotation) {
+            this.acceptMybatisPlusTableNameAnnotation = acceptMybatisPlusTableNameAnnotation;
             return this;
         }
     }

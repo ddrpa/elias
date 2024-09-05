@@ -5,7 +5,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * 行为类似 {@link javax.persistence.Index}，用于声明索引
+ * 行为类似 javax.persistence.Index，用于声明索引
  *
  * @see <a
  * href="https://jakarta.ee/specifications/persistence/2.2/apidocs/javax/persistence/">Jakarta

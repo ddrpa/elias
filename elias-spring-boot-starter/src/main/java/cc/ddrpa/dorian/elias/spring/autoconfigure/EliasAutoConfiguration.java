@@ -1,9 +1,10 @@
 package cc.ddrpa.dorian.elias.spring.autoconfigure;
 
-import cc.ddrpa.dorian.elias.spring.SchemaChecker;
 import cc.ddrpa.dorian.elias.core.EntitySearcher;
 import cc.ddrpa.dorian.elias.core.spec.SpecMaker;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
+import cc.ddrpa.dorian.elias.spring.SchemaChecker;
+import com.baomidou.mybatisplus.annotation.TableName;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
@@ -31,7 +32,7 @@ public class EliasAutoConfiguration {
         + "|  __|| | |/ _` / __|\n"
         + "| |___| | | (_| \\__ \\\n"
         + "\\____/|_|_|\\__,_|___/\n"
-        + "              2.0.0-SNAPSHOT\n";
+        + "              2.0.0\n";
 
     private final EliasProperties properties;
     private final JdbcTemplate jdbcTemplate;
@@ -49,8 +50,12 @@ public class EliasAutoConfiguration {
             logger.warn("No package to scan, skip schema validation.");
             return;
         }
-        List<TableSpec> tableSpecList = new EntitySearcher()
-            .addPackages(includePackages)
+        EntitySearcher searcher = new EntitySearcher()
+            .addPackages(includePackages);
+        if (properties.getScan().getAcceptMybatisPlusTableNameAnnotation()) {
+            searcher.useAnnotation(TableName.class);
+        }
+        List<TableSpec> tableSpecList = searcher
             .search()
             .stream()
             .map(SpecMaker::makeTableSpec)

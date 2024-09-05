@@ -85,7 +85,7 @@ public class ColumnProperties {
             columnSpecMismatchFlag = true;
         }
         // 检查 nullable 属性是否一致
-        if (nullable != columnSpec.isNullable()) {
+        if (!Objects.equals(nullable, columnSpec.isNullable())) {
             columnSpecMismatch.addNullableMismatch(columnSpec.isNullable(), nullable);
             columnSpecMismatchFlag = true;
         }

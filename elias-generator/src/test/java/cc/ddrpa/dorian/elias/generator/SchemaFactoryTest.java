@@ -1,5 +1,6 @@
 package cc.ddrpa.dorian.elias.generator;
 
+import com.baomidou.mybatisplus.annotation.TableName;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
@@ -9,8 +10,8 @@ class SchemaFactoryTest {
     void generateTest() throws ClassNotFoundException, IOException {
         new SchemaFactory()
             .dropIfExists(true)
-            .addAllAnnotatedClass("cc.ddrpa.dorian")
-            .addClass(Class.forName("cc.ddrpa.dorian.elias.playground.AccountSetting"))
+            .addPackage("cc.ddrpa.dorian")
+            .useAnnotation(TableName.class)
             .export("./target/generateTest.sql");
     }
 }

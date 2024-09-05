@@ -12,6 +12,9 @@ import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
 
 public class SQLGenerator {
 
+    private SQLGenerator() {
+    }
+
     private static final Template createTableTemplate;
     private static final Template addColumnTemplate;
     private static final Template alterColumnTemplate;

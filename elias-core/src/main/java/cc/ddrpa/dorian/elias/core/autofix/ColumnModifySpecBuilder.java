@@ -5,6 +5,9 @@ import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnSpecMismatch;
 
 public class ColumnModifySpecBuilder {
 
+    private ColumnModifySpecBuilder() {
+    }
+
     /**
      * <ul>
      *     <li>不允许将可空字段转换为非空字段（不考虑配置了 default value 的情况）</li>
