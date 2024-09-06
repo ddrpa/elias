@@ -1,5 +1,6 @@
 package cc.ddrpa.dorian.elias.core.annotation.types;
 
+import cc.ddrpa.dorian.elias.core.spec.ConstantsPool;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -23,11 +24,11 @@ public @interface CharLength {
     boolean fixed() default false;
 
     /**
-     * 最大长度
+     * 最大长度，默认为 255(ConstantsPool.VARCHAR_DEFAULT_CHARACTER_LENGTH)
      * <p>
-     * 不能大于 65536，否则会被推断为 TEXT 类型
+     * 不能大于 5000(ConstantsPool.VARCHAR_MAX_CHARACTER_LENGTH)，否则会被推断为 TEXT 类型
      *
      * @return
      */
-    long length() default 255L;
+    long length() default ConstantsPool.VARCHAR_DEFAULT_CHARACTER_LENGTH;
 }

@@ -84,10 +84,7 @@ public class SpecMaker {
         if (StringUtils.isNoneBlank(indexAnnotation.name())) {
             indexName = indexAnnotation.name();
         } else {
-            indexName = "idx_";
-            if (indexAnnotation.unique()) {
-                indexName += "unique_";
-            }
+            indexName = indexAnnotation.unique() ? "uk_" : "idx_";
             List<String> columns = Arrays.stream(
                     indexAnnotation.columnList().split(","))
                 .map(columnSpec -> columnSpec.trim().split(" ")[0])
@@ -193,12 +190,15 @@ public class SpecMaker {
          */
         if (field.isAnnotationPresent(UseText.class)) {
             UseText useTextAnnotation = field.getAnnotation(UseText.class);
-            if (useTextAnnotation.estimated() < 16384L) {
+            if (useTextAnnotation.estimated() <= ConstantsPool.VARCHAR_MAX_CHARACTER_LENGTH) {
                 return Pair.of("varchar",
-                    useTextAnnotation.estimated() > 0L ? useTextAnnotation.estimated() : 16383L);
-            } else if (useTextAnnotation.estimated() < 65536L) {
+                    useTextAnnotation.estimated() > 0L
+                        ? useTextAnnotation.estimated()
+                        : ConstantsPool.VARCHAR_MAX_CHARACTER_LENGTH);
+            } else if (useTextAnnotation.estimated() <= ConstantsPool.TEXT_MAX_CHARACTER_LENGTH) {
                 return Pair.of("text", null);
-            } else if (useTextAnnotation.estimated() < 16_777_216L) {
+            } else if (useTextAnnotation.estimated()
+                < ConstantsPool.MEDIUMTEXT_MAX_CHARACTER_LENGTH) {
                 return Pair.of("mediumtext", null);
             } else {
                 return Pair.of("longtext", null);
@@ -210,8 +210,8 @@ public class SpecMaker {
         if (field.isAnnotationPresent(CharLength.class)) {
             CharLength charLengthAnnotation = field.getAnnotation(CharLength.class);
             long estimatedLength =
-                charLengthAnnotation.length() > 0 ? charLengthAnnotation.length() : 255L;
-            if (estimatedLength > 65536L) {
+                charLengthAnnotation.length() > 0L ? charLengthAnnotation.length() : 255L;
+            if (estimatedLength > ConstantsPool.VARCHAR_MAX_CHARACTER_LENGTH) {
                 return Pair.of("text", null);
             } else if (charLengthAnnotation.fixed()) {
                 return Pair.of("char", charLengthAnnotation.length());
@@ -246,7 +246,8 @@ public class SpecMaker {
         switch (fieldType) {
             case "boolean":
             case "java.lang.Boolean":
-                return Pair.of("tinyint", 1L);
+                // override 使用 unsigned tinyint 类型表示布尔值
+                return Pair.of("tinyint unsigned", null);
             case "int":
             case "java.lang.Integer":
                 return Pair.of("int", null);
@@ -268,6 +269,7 @@ public class SpecMaker {
                 return Pair.of("smallint", null);
             case "java.lang.Number":
             case "java.math.BigDecimal":
+                // FEAT_NEEDED 需要调整，目前会丢失小数
                 return Pair.of("decimal", 38L);
             case "Date":
             case "java.sql.Timestamp":
@@ -278,7 +280,7 @@ public class SpecMaker {
             case "java.sql.Blob":
                 return Pair.of("blob", 64000L);
             case "java.sql.Clob":
-                // override，拉到上限，即 65535 个字符
+                // override，拉到上限
                 return Pair.of("text", null);
             case "java.sql.Date":
                 return Pair.of("date", null);

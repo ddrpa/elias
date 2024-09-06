@@ -36,4 +36,9 @@ public class Account {
     private byte[] avatar;
     @UseText
     private String biography;
+    private boolean isActivated;
+    /**
+     * 账户余额，这里是为了演示保留小数 实际如果是货币之类的数据，建议以业务系统处理的最小单位（如分）为单位一
+     */
+    private Number balance;
 }
