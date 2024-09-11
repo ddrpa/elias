@@ -7,7 +7,6 @@ import cc.ddrpa.dorian.elias.spring.SchemaChecker;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.util.List;
 import java.util.stream.Collectors;
-import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 @Configuration
 @ConditionalOnClass(DataSource.class)
-@ConditionalOnExpression("${elias.validate.enabled:true}")
+@ConditionalOnExpression("${elias.validate.enable}")
 @EnableConfigurationProperties(EliasProperties.class)
 public class EliasAutoConfiguration {
 
@@ -41,10 +40,10 @@ public class EliasAutoConfiguration {
         this.properties = properties;
         this.jdbcTemplate = new JdbcTemplate(dataSource);
         logger.info(ASCII_ART);
+        schemaCheck();
     }
 
-    @PostConstruct
-    public void schemaCheck() {
+    protected void schemaCheck() {
         List<String> includePackages = properties.getScan().getIncludes();
         if (includePackages.isEmpty()) {
             logger.warn("No package to scan, skip schema validation.");

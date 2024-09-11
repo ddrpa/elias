@@ -22,9 +22,6 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.reflections.ReflectionUtils;
@@ -151,9 +148,13 @@ public class SpecMaker {
          * {@link javax.validation.constraints.NotEmpty},
          * {@link javax.validation.constraints.NotNull} 注解，设置为非空
          */
-        if (field.isAnnotationPresent(NotNull.class) ||
-            field.isAnnotationPresent(NotEmpty.class) ||
-            field.isAnnotationPresent(NotBlank.class)) {
+        if (field.isAnnotationPresent(javax.validation.constraints.NotNull.class) ||
+            field.isAnnotationPresent(javax.validation.constraints.NotEmpty.class) ||
+            field.isAnnotationPresent(javax.validation.constraints.NotBlank.class) ||
+            field.isAnnotationPresent(jakarta.validation.constraints.NotBlank.class) ||
+            field.isAnnotationPresent(jakarta.validation.constraints.NotNull.class) ||
+            field.isAnnotationPresent(jakarta.validation.constraints.NotEmpty.class)
+        ) {
             columnSpec.setNullable(false);
         }
         // DefaultValue 注解修饰的属性
