@@ -10,6 +10,7 @@ import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnNotExistMismatc
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnSpecMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.TableNotExistMismatch;
 import cc.ddrpa.dorian.elias.generator.SQLGenerator;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -21,14 +22,16 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 public class SchemaChecker {
 
-    private static final String FETCH_METADATA_SQL = "select COLUMN_NAME, COLUMN_DEFAULT, IS_NULLABLE, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, COLUMN_TYPE from INFORMATION_SCHEMA.COLUMNS where TABLE_NAME = ?";
+    private static final String FETCH_METADATA_SQL = "select COLUMN_NAME, COLUMN_DEFAULT, IS_NULLABLE, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, COLUMN_TYPE from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA = ? and TABLE_NAME = ?";
     private static final Logger logger = LoggerFactory.getLogger(SchemaChecker.class);
     private final JdbcTemplate jdbcTemplate;
+    private final String schema;
     private Boolean autoFix = false;
     private List<TableSpec> tableSpecList = new ArrayList<>();
 
-    public SchemaChecker(JdbcTemplate jdbcTemplate) {
+    public SchemaChecker(JdbcTemplate jdbcTemplate) throws SQLException {
         this.jdbcTemplate = jdbcTemplate;
+        this.schema = jdbcTemplate.getDataSource().getConnection().getCatalog();
     }
 
     public SchemaChecker setAutoFix(Boolean autoFix) {
@@ -108,7 +111,7 @@ public class SchemaChecker {
     private List<ISpecMismatch> tableCheck(TableSpec tableSpec) {
         // 对指定表，获取数据库中的元数据
         List<Map<String, Object>> rawColumnDetails = jdbcTemplate.queryForList(FETCH_METADATA_SQL,
-            tableSpec.getName());
+            this.schema, tableSpec.getName());
         if (rawColumnDetails.isEmpty()) {
             // 数据库中不存在这个表
             return List.of(new TableNotExistMismatch(tableSpec));

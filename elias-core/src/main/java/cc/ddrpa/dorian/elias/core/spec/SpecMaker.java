@@ -148,14 +148,23 @@ public class SpecMaker {
          * {@link javax.validation.constraints.NotEmpty},
          * {@link javax.validation.constraints.NotNull} 注解，设置为非空
          */
-        if (field.isAnnotationPresent(javax.validation.constraints.NotNull.class) ||
-            field.isAnnotationPresent(javax.validation.constraints.NotEmpty.class) ||
-            field.isAnnotationPresent(javax.validation.constraints.NotBlank.class) ||
-            field.isAnnotationPresent(jakarta.validation.constraints.NotBlank.class) ||
-            field.isAnnotationPresent(jakarta.validation.constraints.NotNull.class) ||
-            field.isAnnotationPresent(jakarta.validation.constraints.NotEmpty.class)
-        ) {
-            columnSpec.setNullable(false);
+        try {
+            if (field.isAnnotationPresent(javax.validation.constraints.NotNull.class) ||
+                field.isAnnotationPresent(javax.validation.constraints.NotEmpty.class) ||
+                field.isAnnotationPresent(javax.validation.constraints.NotBlank.class)
+            ) {
+                columnSpec.setNullable(false);
+            }
+        } catch (NoClassDefFoundError ignored) {
+        }
+        try {
+            if (field.isAnnotationPresent(jakarta.validation.constraints.NotBlank.class) ||
+                field.isAnnotationPresent(jakarta.validation.constraints.NotNull.class) ||
+                field.isAnnotationPresent(jakarta.validation.constraints.NotEmpty.class)
+            ) {
+                columnSpec.setNullable(false);
+            }
+        } catch (NoClassDefFoundError ignored) {
         }
         // DefaultValue 注解修饰的属性
         if (field.isAnnotationPresent(DefaultValue.class)) {
@@ -164,6 +173,25 @@ public class SpecMaker {
         }
         // 获取 column 的名称
         columnSpec.setName(getColumnName(field));
+        /**
+         * 如果字段有 {@link com.baomidou.mybatisplus.annotation.TableField} 注解且 Value 有效，设置为列名
+         */
+        if (field.isAnnotationPresent(TableField.class)) {
+            TableField tableFieldAnnotation = field.getAnnotation(TableField.class);
+            if (StringUtils.isNoneBlank(tableFieldAnnotation.value())) {
+                columnSpec.setName(tableFieldAnnotation.value());
+            }
+        }
+        /**
+         * 如果字段有 {@link com.baomidou.mybatisplus.annotation.TableId} 注解，设置为主键
+         */
+        if (field.isAnnotationPresent(TableId.class)) {
+            TableId tableId = field.getAnnotation(TableId.class);
+            if (StringUtils.isNoneBlank(tableId.value())) {
+                columnSpec.setName(tableId.value());
+            }
+        }
+
         Pair<String, Long> columnType = getColumnType(field);
         columnSpec.setColumnType(columnType.getLeft(), columnType.getRight());
         return columnSpec;
@@ -171,6 +199,7 @@ public class SpecMaker {
 
     /**
      * 推断 column 的类型
+     * FEAT_NEED 根据列名推断字符类型列的长度，例如名称中带有 url / script / json 等字样
      *
      * @param field
      * @return
@@ -182,7 +211,7 @@ public class SpecMaker {
         if (field.isAnnotationPresent(TypeOverride.class)) {
             TypeOverride typeOverrideAnnotation = field.getAnnotation(TypeOverride.class);
             String overrideType = typeOverrideAnnotation.type().toLowerCase();
-            Long overrideLength = typeOverrideAnnotation.length();
+            long overrideLength = typeOverrideAnnotation.length();
             // FEAT_NEEDED 这里没有检查长度是否合法，类型是否支持
             return Pair.of(overrideType, overrideLength);
         }
