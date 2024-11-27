@@ -12,6 +12,7 @@ import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.TableNotExistMismatch
 import cc.ddrpa.dorian.elias.generator.SQLGenerator;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -146,18 +147,22 @@ public class SchemaChecker {
     }
 
     private void autoFixCreateTable(String tableName, String sql) {
-        jdbcTemplate.execute(sql);
+        executeMultiSQL(sql);
         logger.warn("Applying auto-fix…… Table `{}` created.", tableName);
     }
 
     private void autoFixAddColumn(String tableName, String columnName, String sql) {
-        jdbcTemplate.execute(sql);
+        executeMultiSQL(sql);
         logger.warn("Applying auto-fix…… Column `{}` added in table `{}`.", tableName, columnName);
     }
 
     private void autoFixModifyColumn(String tableName, String columnName, String sql) {
-        jdbcTemplate.execute(sql);
+        executeMultiSQL(sql);
         logger.warn("Applying auto-fix…… Column `{}` modified in table `{}`.", tableName,
             columnName);
+    }
+
+    private void executeMultiSQL(String sql) {
+        Arrays.stream(sql.split(";")).filter(s -> !s.isBlank()).forEach(jdbcTemplate::execute);
     }
 }
