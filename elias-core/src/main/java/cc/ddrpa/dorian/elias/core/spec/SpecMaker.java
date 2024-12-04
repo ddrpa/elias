@@ -2,11 +2,12 @@ package cc.ddrpa.dorian.elias.core.spec;
 
 import static org.reflections.ReflectionUtils.Fields;
 
+import cc.ddrpa.dorian.elias.core.annotation.DefaultValue;
 import cc.ddrpa.dorian.elias.core.annotation.EliasIgnore;
 import cc.ddrpa.dorian.elias.core.annotation.EliasTable;
-import cc.ddrpa.dorian.elias.core.annotation.Index;
+import cc.ddrpa.dorian.elias.core.annotation.EliasTable.Index;
 import cc.ddrpa.dorian.elias.core.annotation.types.CharLength;
-import cc.ddrpa.dorian.elias.core.annotation.types.DefaultValue;
+import cc.ddrpa.dorian.elias.core.annotation.types.Decimal;
 import cc.ddrpa.dorian.elias.core.annotation.types.TypeOverride;
 import cc.ddrpa.dorian.elias.core.annotation.types.UseText;
 import com.baomidou.mybatisplus.annotation.IdType;
@@ -15,6 +16,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -43,8 +45,11 @@ public class SpecMaker {
         tableSpec.setName(getTableName(clazz));
         // 处理类成员
         Set<Field> fields = ReflectionUtils.get(Fields.of(clazz));
-        List<ColumnSpec> columns = fields.stream().map(SpecMaker::processField)
-            .filter(Objects::nonNull).collect(Collectors.toList());
+        // java.io.Serial 在 Java 11 中不可用，且该注解不会在运行时出现，无法用于判断是否忽略
+        List<ColumnSpec> columns = fields.stream()
+            .map(SpecMaker::processField)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
         if (columns.stream().filter(ColumnSpec::isPrimaryKey).count() > 1) {
             throw new IllegalStateException(
                 "Multiple primary keys found in class: " + clazz.getName());
@@ -191,15 +196,29 @@ public class SpecMaker {
                 columnSpec.setName(tableId.value());
             }
         }
-
         Pair<String, Long> columnType = getColumnType(field);
-        columnSpec.setColumnType(columnType.getLeft(), columnType.getRight());
+        /**
+         * 如果字段有 {@link cc.ddrpa.dorian.elias.core.annotation.types.Decimal} 注解，设置为 DECIMAL 类型
+         */
+        if (field.getType().equals(BigDecimal.class)) {
+            int precision = ConstantsPool.BIG_DECIMAL_DEFAULT_PRECISION;
+            int scale = ConstantsPool.BIG_DECIMAL_DEFAULT_SCALE;
+            if (field.isAnnotationPresent(Decimal.class)) {
+                Decimal decimalAnnotation = field.getAnnotation(Decimal.class);
+                precision = decimalAnnotation.precision();
+                scale = decimalAnnotation.scale();
+            }
+            columnSpec.setDataType("decimal")
+                .setPrecisionAndScale(precision, scale);
+        } else {
+            columnSpec.setDataType(columnType.getLeft())
+                .setLength(columnType.getRight());
+        }
         return columnSpec;
     }
 
     /**
-     * 推断 column 的类型
-     * FEAT_NEED 根据列名推断字符类型列的长度，例如名称中带有 url / script / json 等字样
+     * 推断 column 的类型 FEAT_NEED 根据列名推断字符类型列的长度，例如名称中带有 url / script / json 等字样
      *
      * @param field
      * @return
@@ -299,8 +318,7 @@ public class SpecMaker {
                 return Pair.of("smallint", null);
             case "java.lang.Number":
             case "java.math.BigDecimal":
-                // FEAT_NEEDED 需要调整，目前会丢失小数
-                return Pair.of("decimal", 38L);
+                return Pair.of("decimal", null);
             case "Date":
             case "java.sql.Timestamp":
                 return Pair.of("datetime", null);

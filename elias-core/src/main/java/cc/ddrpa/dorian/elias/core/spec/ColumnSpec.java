@@ -1,23 +1,37 @@
 package cc.ddrpa.dorian.elias.core.spec;
 
+import java.util.Objects;
+
 public class ColumnSpec {
 
+    /**
+     * 列名
+     */
     private String name;
     /**
-     * 例如 varchar
+     * SQL 数据类型，例如 varchar
      */
     private String dataType;
     /**
-     * 字符和 blob 类型为最大长度，非字符串类型为可视长度
+     * 对于字符和 blob 类型，为最大长度，非字符串类型为可视长度
      */
     private Long length;
     /**
+     * 对于整数类型，为精度
+     */
+    private Integer precision;
+    /**
+     * 对于 decimal 类型，为小数位数
+     */
+    private Integer scale;
+    /**
      * 例如 varchar(255)，有时候还会包含 unsigned 等信息
      */
-    private String columnType;
+    private String columnType = null;
     private Boolean characterType = false;
     private Boolean textType = false;
     private Boolean blobType = false;
+    private Boolean decimalType = false;
     private Boolean nullable = true;
     private Boolean primaryKey = false;
     private Boolean autoIncrement = false;
@@ -32,25 +46,37 @@ public class ColumnSpec {
         return this;
     }
 
-    /**
-     * 设置列类型
-     *
-     * @param type   数据类型
-     * @param length 字符长度或可视长度
-     * @return
-     */
-    public ColumnSpec setColumnType(String type, Long length) {
-        if (length != null) {
-            this.columnType = String.format("%s(%d)", type, length);
-        } else {
-            this.columnType = type;
-        }
-        this.characterType = type.endsWith("char");
-        this.textType = type.endsWith("text");
-        this.blobType = type.equals("blob");
-        this.dataType = type;
+    public ColumnSpec setDataType(String dataType) {
+        this.characterType = dataType.endsWith("char");
+        this.textType = dataType.endsWith("text");
+        this.blobType = dataType.equals("blob");
+        this.decimalType = dataType.equals("decimal");
+        this.dataType = dataType;
+        return this;
+    }
+
+    public ColumnSpec setLength(Long length) {
         this.length = length;
         return this;
+    }
+
+    public ColumnSpec setPrecisionAndScale(Integer precision, Integer scale) {
+        this.precision = precision;
+        this.scale = scale;
+        return this;
+    }
+
+    private String setColumnType() {
+        if (this.decimalType) {
+            this.columnType = String.format("decimal(%d, %d)", precision, scale);
+        } else {
+            if (Objects.isNull(this.length)) {
+                this.columnType = this.dataType;
+            } else {
+                this.columnType = String.format("%s(%d)", this.dataType, this.length);
+            }
+        }
+        return this.columnType;
     }
 
     public String getDataType() {
@@ -62,7 +88,10 @@ public class ColumnSpec {
     }
 
     public String getColumnType() {
-        return columnType;
+        if (Objects.isNull(columnType)) {
+            return setColumnType();
+        }
+        return this.columnType;
     }
 
     public Boolean isNullable() {

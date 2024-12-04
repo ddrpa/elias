@@ -1,7 +1,6 @@
 package cc.ddrpa.dorian.elias.playground;
 
 import cc.ddrpa.dorian.elias.core.annotation.EliasIgnore;
-import cc.ddrpa.dorian.elias.core.annotation.EliasTable;
 import cc.ddrpa.dorian.elias.core.annotation.types.UseText;
 import com.baomidou.mybatisplus.annotation.TableName;
 
