@@ -21,6 +21,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -51,6 +52,17 @@ public class SpecMaker {
         // java.io.Serial 在 Java 11 中不可用，且该注解不会在运行时出现，无法用于判断是否忽略
         List<ColumnSpec> columns = fields.stream()
             .filter(field -> !field.getName().equalsIgnoreCase("serialVersionUID"))
+            .map(f -> {
+                Class<?> fClazz = f.getDeclaringClass();
+                int depth = 0;
+                while (fClazz != null) {
+                    depth++;
+                    fClazz = fClazz.getSuperclass();
+                }
+                return Pair.of(depth, f);
+            })
+            .sorted(Comparator.comparingInt(Pair::getLeft))
+            .map(Pair::getRight)
             .map(SpecMaker::processField)
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
