@@ -6,9 +6,12 @@ import cc.ddrpa.dorian.elias.core.annotation.DefaultValue;
 import cc.ddrpa.dorian.elias.core.annotation.EliasIgnore;
 import cc.ddrpa.dorian.elias.core.annotation.EliasTable;
 import cc.ddrpa.dorian.elias.core.annotation.EliasTable.Index;
+import cc.ddrpa.dorian.elias.core.annotation.preset.IsUUID;
+import cc.ddrpa.dorian.elias.core.annotation.preset.IsUUIDAsStr;
 import cc.ddrpa.dorian.elias.core.annotation.types.CharLength;
 import cc.ddrpa.dorian.elias.core.annotation.types.Decimal;
 import cc.ddrpa.dorian.elias.core.annotation.types.TypeOverride;
+import cc.ddrpa.dorian.elias.core.annotation.preset.IsJSON;
 import cc.ddrpa.dorian.elias.core.annotation.types.UseText;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -219,12 +222,22 @@ public class SpecMaker {
     }
 
     /**
-     * 推断 column 的类型 FEAT_NEED 根据列名推断字符类型列的长度，例如名称中带有 url / script / json 等字样
+     * 推断 column 的类型
+     * <p>
+     * FEAT_NEED
+     * <p>
+     * 根据列名推断字符类型列的长度，例如名称中带有 url / script / json 等字样
      *
      * @param field
      * @return
      */
     private static Pair<String, Long> getColumnType(Field field) {
+        if (field.isAnnotationPresent(IsUUIDAsStr.class)) {
+            return Pair.of("char", 36L);
+        }
+        if (field.isAnnotationPresent(IsUUID.class)) {
+            return Pair.of("binary", 16L);
+        }
         /**
          * 如果有 {@link TypeOverride} 注解，使用注解中的类型
          */
