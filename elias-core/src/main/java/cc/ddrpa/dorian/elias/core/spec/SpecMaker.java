@@ -11,7 +11,6 @@ import cc.ddrpa.dorian.elias.core.annotation.preset.IsUUIDAsStr;
 import cc.ddrpa.dorian.elias.core.annotation.types.CharLength;
 import cc.ddrpa.dorian.elias.core.annotation.types.Decimal;
 import cc.ddrpa.dorian.elias.core.annotation.types.TypeOverride;
-import cc.ddrpa.dorian.elias.core.annotation.preset.IsJSON;
 import cc.ddrpa.dorian.elias.core.annotation.types.UseText;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -114,6 +113,10 @@ public class SpecMaker {
                 }
             });
             indexName += columns.stream().collect(Collectors.joining("_"));
+        }
+        if (indexName.length() > 64) {
+            // 索引名称超过 64 个字符截断，可能会导致重名
+            indexName = indexName.substring(0, 64);
         }
         return new IndexSpec()
             .setName(indexName)
