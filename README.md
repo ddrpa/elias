@@ -1,6 +1,8 @@
 # Elias
 
-隆重介绍 Elias，可以：
+隆重介绍 Elias
+
+可以：
 
 - 把 Java POJOs 类转换成 MySQL Schema DDL
 - 在 Spring Boot 项目启动时检查数据库 schema 是否和 Java POJOs 一致（并自动应用修改）
@@ -17,7 +19,7 @@
 - 你需要使用 JDK 11+ 来运行 Elias；
 - Elias 设计为配合 Mybatis-plus 使用，缺失这项依赖也许会产生一些问题；
 
-Elias 目前的版本为 `2.0.0`，你也可以通过 Maven SNAPSHOT 仓库访问 SNAPSHOT 版本。
+Elias 目前的版本为 `2.0.0`，你也可以通过 Maven SNAPSHOT 仓库访问 SNAPSHOT 版本，目前为 `2.1.0-SNAPSHOT`。
 
 ```xml
 <repositories>
@@ -52,7 +54,7 @@ Elias 会扫描项目中的实体类，生成对应的 MySQL 建表语句，支�
 ```java
 new SchemaFactory()
     .dropIfExists(true)
-    .addAllAnnotatedClass("cc.ddrpa.dorian")
+    .addPackage("cc.ddrpa.dorian")
     .useAnnotation(com.baomidou.mybatisplus.annotation.TableName.class)
     .export("./target/generateTest.sql");
 ```
@@ -174,6 +176,10 @@ create table `tbl_maintenance_plan` (
 
 // TODO
 
+## 语义化注解
+
+
+
 ## Schema 检查与 auto-fix
 
 // TODO
@@ -186,3 +192,9 @@ create table `tbl_maintenance_plan` (
 - [ ] 支持检查索引
 - [ ] 支持多数据源
 - [ ] 支持分表场景
+
+## 常见问题
+
+Q: 我的项目中有一些 `org.springframework.beans.factory.InitializingBean` 实现类 / 使用 `@PostConstruct` 修饰的方法在 Elias 之前访问了数据库，有什么办法可以指定顺序吗？
+
+A: 目前没想到什么好方法。可以试试在这些 Bean 中注入 `cc.ddrpa.dorian.elias.spring.autoconfigure.EliasAutoConfiguration` 实例，向 Spring Boot 强调先后顺序
