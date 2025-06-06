@@ -96,11 +96,7 @@ public class SpecMaker {
         tableSpec.setColumns(columns);
         EliasTable eliasTableAnnotation = clazz.getAnnotation(EliasTable.class);
         if (eliasTableAnnotation != null && eliasTableAnnotation.indexes().length > 0) {
-            Set<String> existedColumnNameSet = columns.stream()
-                .map(ColumnSpec::getName)
-                .collect(Collectors.toSet());
-            List<IndexSpec> indexSpecs = createIndexSpecs(eliasTableAnnotation,
-                existedColumnNameSet);
+            List<IndexSpec> indexSpecs = createIndexSpecs(eliasTableAnnotation, columns);
             tableSpec.setIndexes(indexSpecs);
             List<SpatialIndexSpec> spatialIndexSpecs = createSpatialIndexSpecs(eliasTableAnnotation,
                 columns);
@@ -113,11 +109,18 @@ public class SpecMaker {
      * 解析索引配置
      *
      * @param eliasTableAnno
-     * @param existedColumnNameSet
+     * @param columnSpecs
      * @return
      */
     protected static List<IndexSpec> createIndexSpecs(EliasTable eliasTableAnno,
-        Set<String> existedColumnNameSet) {
+        List<ColumnSpec> columnSpecs) {
+        Set<String> existedColumnNameSet = columnSpecs.stream()
+            .map(ColumnSpec::getName)
+            .collect(Collectors.toSet());
+        Set<String> nonNullColumnNameSet = columnSpecs.stream()
+            .filter(columnSpec -> !columnSpec.isNullable())
+            .map(ColumnSpec::getName)
+            .collect(Collectors.toSet());
         Map<String, IndexSpec> indexSpecMap = Arrays.stream(eliasTableAnno.indexes())
             .map(indexAnno -> {
                 String indexName;
@@ -129,15 +132,24 @@ public class SpecMaker {
                 if (StringUtils.isNoneBlank(indexAnno.name())) {
                     indexName = indexAnno.name();
                 } else {
-                    indexName = indexAnno.unique() ? "uk_" : "idx_";
                     List<String> annotatedColumns = Arrays.stream(
                             indexAnno.columns().split(","))
                         .map(columnSpec -> columnSpec.trim().split(" ")[0])
-                        .collect(Collectors.toList());
-                    if (annotatedColumns.stream()
-                        .anyMatch(c -> !existedColumnNameSet.contains(c))) {
-                        throw new IllegalStateException(
-                            "Index column not found in table: " + indexName);
+                        .toList();
+                    if (indexAnno.unique()) {
+                        indexName = "uk_";
+                        // 唯一索引成员必须满足 not_null 条件
+                        if (annotatedColumns.stream()
+                            .anyMatch(c -> !nonNullColumnNameSet.contains(c))) {
+                            throw new IllegalStateException(
+                                "Annotated column not found or is nullable");
+                        }
+                    } else {
+                        indexName = "idx_";
+                        if (annotatedColumns.stream()
+                            .anyMatch(c -> !existedColumnNameSet.contains(c))) {
+                            throw new IllegalStateException("Annotated column not found");
+                        }
                     }
                     indexName += String.join("_", annotatedColumns);
                 }
@@ -203,8 +215,7 @@ public class SpecMaker {
                     if (annotatedColumns.stream()
                         .anyMatch(c -> !existedColumnNameSet.contains(c))) {
                         throw new IllegalStateException(
-                            "Spatial index column not found in table or is nullable: "
-                                + indexName);
+                            "Annotated column with geo type not found in table or is nullable");
                     }
                     indexName += String.join("_", annotatedColumns);
                 }
