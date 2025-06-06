@@ -1,1 +1,0 @@
-alter table `${table}` modify column `${column}`#if($cm.alterColumnType) ${cm.newColumnType}#end#if($cm.alterNullable)#if($cm.newNullable) null#else not null#end#end#if($cm.alterDefaultValue)#if($cm.newDefaultValue) default '${cm.newDefaultValue}'#else null#end#end;

@@ -1,10 +1,11 @@
 package cc.ddrpa.dorian.elias.spring.autoconfigure;
 
 import cc.ddrpa.dorian.elias.core.EntitySearcher;
-import cc.ddrpa.dorian.elias.core.spec.SpecMaker;
+import cc.ddrpa.dorian.elias.core.SpecMaker;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
 import cc.ddrpa.dorian.elias.spring.SchemaChecker;
 import com.baomidou.mybatisplus.annotation.TableName;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -26,14 +27,16 @@ import org.springframework.jdbc.core.JdbcTemplate;
 public class EliasAutoConfiguration implements InitializingBean {
 
     private static final Logger logger = LoggerFactory.getLogger(EliasAutoConfiguration.class);
-    private static final String ASCII_ART = "\n"
-        + " _____ _ _           \n"
-        + "|  ___| (_)          \n"
-        + "| |__ | |_  __ _ ___ \n"
-        + "|  __|| | |/ _` / __|\n"
-        + "| |___| | | (_| \\__ \\\n"
-        + "\\____/|_|_|\\__,_|___/\n"
-        + "              2.0.0\n";
+    private static final String ASCII_ART = """
+        
+         _____ _ _
+        |  ___| (_)
+        | |__ | |_  __ _ ___
+        |  __|| | |/ _` / __|
+        | |___| | | (_| \\__ \\
+        \\____/|_|_|\\__,_|___/
+                      2.5.0-SNAPSHOT
+        """;
 
     private final EliasProperties properties;
     private final JdbcTemplate jdbcTemplate;
@@ -44,7 +47,7 @@ public class EliasAutoConfiguration implements InitializingBean {
         logger.info(ASCII_ART);
     }
 
-    protected void schemaCheck() throws SQLException {
+    protected void schemaCheck() throws SQLException, IOException {
         List<String> includePackages = properties.getScan().getIncludes();
         if (includePackages.isEmpty()) {
             logger.warn("No package to scan, skip schema validation.");

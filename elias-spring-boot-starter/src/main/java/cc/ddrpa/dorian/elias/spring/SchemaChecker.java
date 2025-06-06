@@ -1,7 +1,7 @@
 package cc.ddrpa.dorian.elias.spring;
 
-import cc.ddrpa.dorian.elias.core.autofix.ColumnModifySpecBuilder;
 import cc.ddrpa.dorian.elias.core.spec.ColumnModifySpec;
+import cc.ddrpa.dorian.elias.core.spec.ColumnModifySpecBuilder;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpec;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
 import cc.ddrpa.dorian.elias.core.validation.ColumnProperties;
@@ -9,7 +9,9 @@ import cc.ddrpa.dorian.elias.core.validation.mismatch.ISpecMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnNotExistMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnSpecMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.TableNotExistMismatch;
+import cc.ddrpa.dorian.elias.generator.MySQL57Generator;
 import cc.ddrpa.dorian.elias.generator.SQLGenerator;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,15 +29,15 @@ public class SchemaChecker {
     private static final Logger logger = LoggerFactory.getLogger(SchemaChecker.class);
     private final JdbcTemplate jdbcTemplate;
     private final String schema;
-    private Boolean autoFix = false;
-    private List<TableSpec> tableSpecList = new ArrayList<>();
+    private boolean autoFix = false;
+    private final List<TableSpec> tableSpecList = new ArrayList<>();
 
     public SchemaChecker(JdbcTemplate jdbcTemplate) throws SQLException {
         this.jdbcTemplate = jdbcTemplate;
         this.schema = jdbcTemplate.getDataSource().getConnection().getCatalog();
     }
 
-    public SchemaChecker setAutoFix(Boolean autoFix) {
+    public SchemaChecker setAutoFix(boolean autoFix) {
         this.autoFix = autoFix;
         return this;
     }
@@ -45,7 +47,8 @@ public class SchemaChecker {
         return this;
     }
 
-    public boolean check() {
+    public boolean check() throws IOException {
+        SQLGenerator generator = new MySQL57Generator().setDropIfExists(false);
         boolean somethingBadHappened = false;
         for (TableSpec tableSpec : tableSpecList) {
             List<ISpecMismatch> mismatches = tableCheck(tableSpec);
@@ -53,11 +56,9 @@ public class SchemaChecker {
                 continue;
             }
             somethingBadHappened = true;
-            if (mismatches.get(0) instanceof TableNotExistMismatch) {
+            if (mismatches.get(0) instanceof TableNotExistMismatch mismatch) {
                 // 表不存在，创建表
-                TableNotExistMismatch mismatch = (TableNotExistMismatch) mismatches.get(0);
-                String createTableSql = SQLGenerator.createTable(mismatch.getExpectedTableSpec(),
-                    false);
+                String createTableSql = generator.createTable(mismatch.getExpectedTableSpec());
                 errorAndRecommend(mismatch.errorMessage(), createTableSql);
                 if (autoFix) {
                     autoFixCreateTable(mismatch.getExpectedTableSpec().getName(), createTableSql);
@@ -65,10 +66,9 @@ public class SchemaChecker {
                 continue;
             }
             for (ISpecMismatch mismatch : mismatches) {
-                if (mismatch instanceof ColumnNotExistMismatch) {
+                if (mismatch instanceof ColumnNotExistMismatch columnNotExistMismatch) {
                     // 缺列，创建列
-                    ColumnNotExistMismatch columnNotExistMismatch = (ColumnNotExistMismatch) mismatch;
-                    String addColumnSql = SQLGenerator.addColumn(
+                    String addColumnSql = generator.addColumn(
                         columnNotExistMismatch.getTableName(),
                         columnNotExistMismatch.getColumnSpec());
                     errorAndRecommend(mismatch.errorMessage(), addColumnSql);
@@ -78,12 +78,11 @@ public class SchemaChecker {
                             columnNotExistMismatch.getColumnSpec().getName(),
                             addColumnSql);
                     }
-                } else if (mismatch instanceof ColumnSpecMismatch) {
+                } else if (mismatch instanceof ColumnSpecMismatch columnSpecMismatch) {
                     // 列的属性不匹配
-                    ColumnSpecMismatch columnSpecMismatch = (ColumnSpecMismatch) mismatch;
                     ColumnModifySpec columnModifySpecResult = ColumnModifySpecBuilder.build(
                         columnSpecMismatch);
-                    String modifyColumnSql = SQLGenerator.modifyColumn(
+                    String modifyColumnSql = generator.modifyColumn(
                         columnSpecMismatch.getTableName(),
                         columnSpecMismatch.getColumnName(),
                         columnModifySpecResult);
@@ -99,8 +98,7 @@ public class SchemaChecker {
                         logger.warn(
                             "{}\nAuto-fix is not recommended due to:\n{}\nEnsure all values fit within the new constraints and try:\n{}",
                             mismatch.errorMessage(),
-                            columnModifySpecResult.getWarnings().stream()
-                                .collect(Collectors.joining("\n")),
+                            String.join("\n", columnModifySpecResult.getWarnings()),
                             modifyColumnSql);
                     }
                 }
@@ -132,11 +130,9 @@ public class SchemaChecker {
             // 实体类的所有有效属性都需要在数据库中存在
             ColumnProperties columnProperties = sqlColumnMap.get(columnSpec.getName());
             Optional<ColumnSpecMismatch> mismatch = columnProperties.validate(columnSpec);
-            if (mismatch.isPresent()) {
-                mismatches.add(mismatch.get()
-                    .setTableName(tableSpec.getName())
-                    .setColumnName(columnSpec.getName()));
-            }
+            mismatch.ifPresent(columnSpecMismatch -> mismatches.add(columnSpecMismatch
+                .setTableName(tableSpec.getName())
+                .setColumnName(columnSpec.getName())));
         }
         // FEAT_NEEDED 检查索引设置
         return mismatches;

@@ -1,6 +1,6 @@
 package cc.ddrpa.dorian.elias.core.annotation.types;
 
-import cc.ddrpa.dorian.elias.core.spec.ConstantsPool;
+import cc.ddrpa.dorian.elias.core.ConstantsPool;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

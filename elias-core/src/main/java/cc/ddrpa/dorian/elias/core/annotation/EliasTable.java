@@ -36,7 +36,14 @@ public @interface EliasTable {
      */
     Index[] indexes() default {};
 
+    /**
+     * 为几何类型的非空字段自动创建空间索引
+     *
+     * @return
+     */
+    boolean autoSpatialIndexForGeometry() default true;
 
+    Index[] spatialIndexes() default {};
 
     /**
      * 行为类似 javax.persistence.Index，用于声明索引
@@ -55,14 +62,14 @@ public @interface EliasTable {
         String name() default "";
 
         /**
-         * The names of the columns to be included in the index, in order. The syntax of the columnList
-         * element is a column_list, as follows:
+         * The names of the columns to be included in the index, in order. The syntax of the
+         * columnList element is a column_list, as follows:
          * <pre>
          * column::= index_column [,index_column]*
          * index_column::= column_name [ASC | DESC]
          * </pre>
          */
-        String columnList();
+        String columns();
 
         /**
          * Whether the index is unique, default false

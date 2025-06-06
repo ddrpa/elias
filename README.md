@@ -7,27 +7,30 @@
 - 把 Java POJOs 类转换成 MySQL Schema DDL
 - 在 Spring Boot 项目启动时检查数据库 schema 是否和 Java POJOs 一致（并自动应用修改）
 
-使用 Mybatis-plus 作为 ORM 层的 Java 项目，通常的工作路径是先创建数据库 schema，然后用代码生成器生成 Java POJOs 和相关的 DAO 层对象。可能是受了 JPA 影响，偏好「充血模型」的缘故，笔者不太喜欢这个工作流程：
+使用 Mybatis-plus 作为 ORM 层的 Java 项目，通常的工作路径是先创建数据库 schema，然后用代码生成器生成
+Java POJOs 和相关的 DAO 层对象。可能是受了 JPA 影响，偏好「充血模型」的缘故，笔者不太喜欢这个工作流程：
 
-1. 笔者习惯先编写 MVP 证实业务思路是可行的，这个时候持久层往往还在 H2 上，之后会迁移到 MySQL，有的时候随着设计的演进，还会迁移到 NoSQL 上；
-2. 开发早期阶段改动最多的是 Java POJOs（和相应的 DTOs、VOs），笔者也会把一些简单的逻辑写在 POJOs 中，重新生成代码就会覆盖这些内容；
-3. 笔者的团队只在具有一定规模的项目的 RC+ 分支中使用 Liquibase 控制 schema 的变更，团队成员如果合作一个模块，在没有协调好的情况下只有 Git 控制的 Java 代码能够拯救他们；
+1. 笔者习惯先编写 MVP 证实业务思路是可行的，这个时候持久层往往还在 H2 上，之后会迁移到
+   MySQL，有的时候随着设计的演进，还会迁移到 NoSQL 上；
+2. 开发早期阶段改动最多的是 Java POJOs（和相应的 DTOs、VOs），笔者也会把一些简单的逻辑写在 POJOs
+   中，重新生成代码就会覆盖这些内容；
+3. 笔者的团队只在具有一定规模的项目的 RC+ 分支中使用 Liquibase 控制 schema
+   的变更，团队成员如果合作一个模块，在没有协调好的情况下只有 Git 控制的 Java 代码能够拯救他们；
 4. <del>笔者有时候会忘了应该在 MySQL 中为列设置什么类型；</del>
 
 ## How-To
 
-- 你需要使用 JDK 11+ 来运行 Elias；
+- 你需要使用 JDK 17+ 来运行 Elias；
 - Elias 设计为配合 Mybatis-plus 使用，缺失这项依赖也许会产生一些问题；
 
-Elias 目前的版本为 `2.0.0`，你也可以通过 Maven SNAPSHOT 仓库访问 SNAPSHOT 版本，目前为 `2.1.0-SNAPSHOT`。
+Elias 目前的版本为 `2.0.0`，你也可以通过 Maven SNAPSHOT 仓库访问 SNAPSHOT 版本，目前为
+`2.5.0-SNAPSHOT`，对 JDK 11 的支持停留在 `2.0.0` 和 `2.1.0-SNAPSHOT` 版本。
 
 ```xml
-<repositories>
-    <repository>
-        <id>snapshots</id>
-        <url>https://s01.oss.sonatype.org/content/repositories/snapshots/</url>
-    </repository>
-</repositories>
+<repository>
+  <id>central-portal-snapshots</id>
+  <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+</repository>
 ```
 
 ### 使用 Elias 生成数据库建表语句
@@ -37,41 +40,54 @@ Elias 会扫描项目中的实体类，生成对应的 MySQL 建表语句，支�
 - 推断设置列的类型、长度
 - 设置列是否可为空
 - 设置默认值
-- 声明并创建索引
+- 声明并创建索引（和空间索引）
 
 在项目中添加如下依赖：
 
 ```xml
+
 <dependency>
-    <groupId>cc.ddrpa.dorian.elias</groupId>
-    <artifactId>elias-generator</artifactId>
-    <version>${elias.version}</version>
+  <groupId>cc.ddrpa.dorian.elias</groupId>
+  <artifactId>elias-generator</artifactId>
+  <version>${elias.version}</version>
 </dependency>
 ```
 
-使用如下语句，Elias 会查找使用 `cc.ddrpa.dorian.elias.core.annotation.EliasTable` 或 `com.baomidou.mybatisplus.annotation.TableName` 注解标注的实体类。
+使用如下语句，Elias 会查找使用 `cc.ddrpa.dorian.elias.core.annotation.EliasTable` 或
+`com.baomidou.mybatisplus.annotation.TableName` 注解标注的实体类。
 
 ```java
 new SchemaFactory()
-    .dropIfExists(true)
-    .addPackage("cc.ddrpa.dorian")
-    .useAnnotation(com.baomidou.mybatisplus.annotation.TableName.class)
-    .export("./target/generateTest.sql");
+    .
+
+dropIfExists(true)
+    .
+
+addPackage("cc.ddrpa.dorian")
+    .
+
+useAnnotation(com.baomidou.mybatisplus.annotation.TableName .class)
+    .
+
+export("./target/generateTest.sql");
 ```
 
-在实体类中，你可以使用 `cc.ddrpa.dorian.elias.core.annotation.EliasTable` 注解来声明表需要建立的索引，也可以使用其他一些注解来声明列的名称和类型。
+在实体类中，你可以使用 `cc.ddrpa.dorian.elias.core.annotation.EliasTable`
+注解来声明表需要建立的索引，也可以使用其他一些注解来声明列的名称和类型。
 
 ```java
+
 @EliasTable(
     enable = true,
     indexes = {
-        @Index(columnList = "email_address", unique = true),
-        @Index(columnList = "username"),
-        @Index(columnList = "username, email_address", unique = true),
+        @Index(columns = "email_address", unique = true),
+        @Index(columns = "username"),
+        @Index(columns = "username, email_address", unique = true),
     }
 )
 @TableName("tbl_account")
 public class Account {
+
     @TableId(value = "id", type = IdType.AUTO)
     private Integer id;
     @TableField("username")
@@ -92,15 +108,16 @@ public class Account {
 
 ```sql
 drop table if exists `tbl_account`;
-create table `tbl_account` (
-   `id` int not null auto_increment
-       primary key,
-   `username` varchar(255) not null,
-   `email_address` varchar(255) not null,
-   `create_time` varchar(500) null,
-   `account_status` tinyint(4) null,
-   `avatar` blob(64000) null,
-   `biography` varchar(16383) null
+create table `tbl_account`
+(
+    `id`             int            not null auto_increment
+        primary key,
+    `username`       varchar(255)   not null,
+    `email_address`  varchar(255)   not null,
+    `create_time`    varchar(500)   null,
+    `account_status` tinyint(4)     null,
+    `avatar`         blob(64000)    null,
+    `biography`      varchar(16383) null
 );
 create unique index idx_unique_email_address on `tbl_account` (email_address);
 create index idx_username on `tbl_account` (username);
@@ -117,6 +134,7 @@ create unique index idx_unique_username_email_address on `tbl_account` (username
 在项目中添加如下依赖：
 
 ```xml
+
 <dependency>
   <groupId>cc.ddrpa.dorian.elias</groupId>
   <artifactId>elias-spring-boot-starter</artifactId>
@@ -139,7 +157,10 @@ elias:
     auto-fix: false # 如果 schema 不匹配，是否要自动修复
 ```
 
-在 `elias.validate.scan.includes` 中指定的包路径下，Elias 会寻找符合搜索要求的实体类，然后检查数据库 schema 是否和这些类的定义一致。其他配置保持默认的情况下，Elias 会在 Spring Boot 项目启动时输出类似这样的日志，可以看到其给出了创建表、创建 / 修改列的 SQL 建议，如果开启了 `elias.validate.auto-fix`，Elias 会尝试执行其中一部分 SQL。
+在 `elias.validate.scan.includes` 中指定的包路径下，Elias 会寻找符合搜索要求的实体类，然后检查数据库
+schema 是否和这些类的定义一致。其他配置保持默认的情况下，Elias 会在 Spring Boot
+项目启动时输出类似这样的日志，可以看到其给出了创建表、创建 / 修改列的 SQL 建议，如果开启了
+`elias.validate.auto-fix`，Elias 会尝试执行其中一部分 SQL。
 
 ```log
 2024-09-04 17:03:36 [main] INFO  c.d.d.e.s.a.EliasAutoConfiguration - 
@@ -174,11 +195,11 @@ create table `tbl_maintenance_plan` (
 
 ## Java POJOs 属性与数据库元素的转换规则
 
-// TODO
+参见 `cc.ddrpa.dorian.elias.core.factory` 下的 `SchemaFactory` 实现类。
 
 ## 语义化注解
 
-
+// TODO
 
 ## Schema 检查与 auto-fix
 
@@ -195,6 +216,8 @@ create table `tbl_maintenance_plan` (
 
 ## 常见问题
 
-Q: 我的项目中有一些 `org.springframework.beans.factory.InitializingBean` 实现类 / 使用 `@PostConstruct` 修饰的方法在 Elias 之前访问了数据库，有什么办法可以指定顺序吗？
+Q: 我的项目中有一些 `org.springframework.beans.factory.InitializingBean` 实现类 / 使用
+`@PostConstruct` 修饰的方法在 Elias 之前访问了数据库，有什么办法可以指定顺序吗？
 
-A: 目前没想到什么好方法。可以试试在这些 Bean 中注入 `cc.ddrpa.dorian.elias.spring.autoconfigure.EliasAutoConfiguration` 实例，向 Spring Boot 强调先后顺序
+A: 目前没想到什么好方法。可以试试在这些 Bean 中注入
+`cc.ddrpa.dorian.elias.spring.autoconfigure.EliasAutoConfiguration` 实例，向 Spring Boot 强调先后顺序

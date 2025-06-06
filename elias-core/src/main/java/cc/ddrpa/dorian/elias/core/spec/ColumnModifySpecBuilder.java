@@ -1,6 +1,5 @@
-package cc.ddrpa.dorian.elias.core.autofix;
+package cc.ddrpa.dorian.elias.core.spec;
 
-import cc.ddrpa.dorian.elias.core.spec.ColumnModifySpec;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnSpecMismatch;
 
 public class ColumnModifySpecBuilder {

@@ -6,7 +6,7 @@
   <groupId>cc.ddrpa.dorian.elias</groupId>
   <artifactId>elias-pom</artifactId>
   <name>${project.groupId}:${project.artifactId}</name>
-  <version>2.1.0-SNAPSHOT</version>
+  <version>2.5.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <licenses>
@@ -41,7 +41,7 @@
   </modules>
 
   <properties>
-    <java.version>11</java.version>
+    <java.version>17</java.version>
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -49,6 +49,16 @@
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>org.hibernate.orm</groupId>
+        <artifactId>hibernate-spatial</artifactId>
+        <version>6.6.15.Final</version>
+      </dependency>
+      <dependency>
+        <groupId>io.pebbletemplates</groupId>
+        <artifactId>pebble</artifactId>
+        <version>3.2.4</version>
+      </dependency>
       <dependency>
         <groupId>org.reflections</groupId>
         <artifactId>reflections</artifactId>
@@ -70,11 +80,6 @@
         <version>3.5.16</version>
       </dependency>
       <dependency>
-        <groupId>org.apache.velocity</groupId>
-        <artifactId>velocity-engine-core</artifactId>
-        <version>2.3</version>
-      </dependency>
-      <dependency>
         <groupId>org.apache.commons</groupId>
         <artifactId>commons-lang3</artifactId>
         <version>3.15.0</version>
@@ -87,14 +92,17 @@
       <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-simple</artifactId>
-        <scope>test</scope>
         <version>2.0.13</version>
       </dependency>
       <dependency>
         <groupId>org.junit.jupiter</groupId>
         <artifactId>junit-jupiter-api</artifactId>
-        <scope>test</scope>
         <version>5.10.3</version>
+      </dependency>
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>1.18.38</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

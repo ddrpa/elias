@@ -1,4 +1,4 @@
-package cc.ddrpa.dorian.elias.core.annotation.types;
+package cc.ddrpa.dorian.elias.core.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -26,5 +26,5 @@ public @interface TypeOverride {
      *
      * @return
      */
-    long length();
+    long length() default -1L;
 }

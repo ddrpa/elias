@@ -5,9 +5,8 @@ import lombok.experimental.Accessors;
 
 @Data
 @Accessors(chain = true)
-public class IndexSpec {
+public class SpatialIndexSpec {
 
     private String name;
-    private boolean unique;
     private String columns;
 }

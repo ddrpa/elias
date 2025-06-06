@@ -1,7 +1,7 @@
 package cc.ddrpa.dorian.elias.generator;
 
 import cc.ddrpa.dorian.elias.core.EntitySearcher;
-import cc.ddrpa.dorian.elias.core.spec.SpecMaker;
+import cc.ddrpa.dorian.elias.core.SpecMaker;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -11,7 +11,6 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,14 +70,21 @@ public class SchemaFactory {
      */
     public void export(String outputFile) throws IOException {
         classes.addAll(entitySearcher.search());
+        SQLGenerator generator = new MySQL57Generator()
+            .setDropIfExists(dropIfExists);
+
         List<String> tableDSLList = classes.stream()
             .sorted(Comparator.comparing(Class::getSimpleName))
             .map(clazz -> {
                 logger.trace("Processing class: {}", clazz.getName());
                 TableSpec tableSpec = SpecMaker.makeTableSpec(clazz);
-                return SQLGenerator.createTable(tableSpec, dropIfExists);
+                try {
+                    return generator.createTable(tableSpec);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
             })
-            .collect(Collectors.toList());
+            .toList();
         try (FileOutputStream fos = new FileOutputStream(outputFile)) {
             for (String dsl : tableDSLList) {
                 fos.write(dsl.getBytes(StandardCharsets.UTF_8));

@@ -2,7 +2,7 @@ package cc.ddrpa.dorian.elias.playground;
 
 import cc.ddrpa.dorian.elias.core.annotation.EliasTable;
 import cc.ddrpa.dorian.elias.core.annotation.EliasTable.Index;
-import cc.ddrpa.dorian.elias.core.annotation.types.TypeOverride;
+import cc.ddrpa.dorian.elias.core.annotation.TypeOverride;
 import cc.ddrpa.dorian.elias.core.annotation.types.UseText;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -15,9 +15,9 @@ import javax.validation.constraints.NotNull;
 @EliasTable(
     enable = true,
     indexes = {
-        @Index(columnList = "email_address", unique = true),
-        @Index(columnList = "username"),
-        @Index(columnList = "username, email_address", unique = true),
+        @Index(columns = "email_address", unique = true),
+        @Index(columns = "username"),
+        @Index(columns = "username, email_address", unique = true),
     }
 )
 @TableName("tbl_account")

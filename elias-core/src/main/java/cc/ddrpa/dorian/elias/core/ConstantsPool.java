@@ -1,4 +1,4 @@
-package cc.ddrpa.dorian.elias.core.spec;
+package cc.ddrpa.dorian.elias.core;
 
 public class ConstantsPool {
 
