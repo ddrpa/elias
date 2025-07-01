@@ -1,17 +1,20 @@
 package cc.ddrpa.dorian.elias.generator;
 
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
 
 class SchemaFactoryTest {
 
     @Test
-    void generateTest() throws ClassNotFoundException, IOException {
+    void generateTest() throws IOException {
+        SQLGenerator generator = new MySQL57Generator()
+                .enableH2Compatibility()
+                .setDropIfExists(false);
         new SchemaFactory()
-            .dropIfExists(true)
-            .addPackage("cc.ddrpa.dorian")
-            .useAnnotation(TableName.class)
-            .export("./target/generateTest.sql");
+                .addPackage("cc.ddrpa.dorian")
+                .useAnnotation(TableName.class)
+                .export("./target/generateTest.sql", generator);
     }
 }

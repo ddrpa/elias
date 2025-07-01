@@ -41,6 +41,7 @@ public class ColumnSpec {
     /**
      * 例如 varchar(255)，有时候还会包含 unsigned 等信息
      */
+    @Setter
     private String columnType = null;
 
     // 用于空间数据类型

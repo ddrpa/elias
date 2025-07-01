@@ -20,12 +20,6 @@ public class SchemaFactory {
     private final Logger logger = LoggerFactory.getLogger(SchemaFactory.class);
     private final Set<Class<?>> classes = new HashSet<>(5);
     private final EntitySearcher entitySearcher = new EntitySearcher();
-    private boolean dropIfExists = false;
-
-    public SchemaFactory dropIfExists(boolean enable) {
-        this.dropIfExists = enable;
-        return this;
-    }
 
     /**
      * 添加指定包下的所有符合条件的类
@@ -68,10 +62,8 @@ public class SchemaFactory {
      * @param outputFile
      * @throws IOException
      */
-    public void export(String outputFile) throws IOException {
+    public void export(String outputFile, SQLGenerator generator) throws IOException {
         classes.addAll(entitySearcher.search());
-        SQLGenerator generator = new MySQL57Generator()
-            .setDropIfExists(dropIfExists);
 
         List<String> tableDSLList = classes.stream()
             .sorted(Comparator.comparing(Class::getSimpleName))
