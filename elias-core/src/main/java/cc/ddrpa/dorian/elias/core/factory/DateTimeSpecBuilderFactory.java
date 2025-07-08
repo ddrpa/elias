@@ -19,7 +19,7 @@ public class DateTimeSpecBuilderFactory implements SpecBuilderFactory {
         "java.time.LocalDateTime",
         "java.time.OffsetDateTime",
         "java.sql.Timestamp",
-        "Date"
+        "java.util.Date"
     );
 
     @Override
