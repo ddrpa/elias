@@ -2,12 +2,7 @@ package cc.ddrpa.dorian.elias.core.spec;
 
 import java.util.List;
 import java.util.Objects;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.experimental.Accessors;
 
-@Getter
-@Accessors(chain = true)
 public class ColumnSpec {
 
     private static final List<String> GEOMETRY_TYPES = List.of(
@@ -19,7 +14,6 @@ public class ColumnSpec {
     /**
      * 列名
      */
-    @Setter
     private String name;
     /**
      * SQL 数据类型，例如 varchar
@@ -28,7 +22,6 @@ public class ColumnSpec {
     /**
      * 对于字符和 blob 类型，为最大长度，非字符串类型为可视长度
      */
-    @Setter
     private Long length;
     /**
      * 对于整数类型，为精度
@@ -41,27 +34,132 @@ public class ColumnSpec {
     /**
      * 例如 varchar(255)，有时候还会包含 unsigned 等信息
      */
-    @Setter
     private String columnType = null;
 
     // 用于空间数据类型
-    @Setter
     private int srid;
     private Boolean characterType = false;
     private Boolean textType = false;
     private Boolean blobType = false;
     private Boolean decimalType = false;
-    @Setter
     private boolean nullable = true;
-    @Setter
     private boolean primaryKey = false;
-    @Setter
     private boolean autoIncrement = false;
-    @Setter
     private String defaultValue;
     // 不好弄，运行时读不到注释了
-    @Setter
     private String comment;
+
+    public String getName() {
+        return name;
+    }
+
+    public ColumnSpec setName(String name) {
+        this.name = name;
+        return this;
+    }
+
+    public String getDataType() {
+        return dataType;
+    }
+
+    public Long getLength() {
+        return length;
+    }
+
+    public ColumnSpec setLength(Long length) {
+        this.length = length;
+        return this;
+    }
+
+    public Integer getPrecision() {
+        return precision;
+    }
+
+    public Integer getScale() {
+        return scale;
+    }
+
+    public String getColumnType() {
+        if (Objects.isNull(columnType)) {
+            return setColumnType();
+        }
+        return this.columnType;
+    }
+
+    public ColumnSpec setColumnType(String columnType) {
+        this.columnType = columnType;
+        return this;
+    }
+
+    public int getSrid() {
+        return srid;
+    }
+
+    public ColumnSpec setSrid(int srid) {
+        this.srid = srid;
+        return this;
+    }
+
+    public Boolean getCharacterType() {
+        return characterType;
+    }
+
+    public Boolean getTextType() {
+        return textType;
+    }
+
+    public Boolean getBlobType() {
+        return blobType;
+    }
+
+    public Boolean getDecimalType() {
+        return decimalType;
+    }
+
+    public boolean isNullable() {
+        return nullable;
+    }
+
+    public ColumnSpec setNullable(boolean nullable) {
+        this.nullable = nullable;
+        return this;
+    }
+
+    public boolean isPrimaryKey() {
+        return primaryKey;
+    }
+
+    public ColumnSpec setPrimaryKey(boolean primaryKey) {
+        this.primaryKey = primaryKey;
+        return this;
+    }
+
+    public boolean isAutoIncrement() {
+        return autoIncrement;
+    }
+
+    public ColumnSpec setAutoIncrement(boolean autoIncrement) {
+        this.autoIncrement = autoIncrement;
+        return this;
+    }
+
+    public String getDefaultValue() {
+        return defaultValue;
+    }
+
+    public ColumnSpec setDefaultValue(String defaultValue) {
+        this.defaultValue = defaultValue;
+        return this;
+    }
+
+    public String getComment() {
+        return comment;
+    }
+
+    public ColumnSpec setComment(String comment) {
+        this.comment = comment;
+        return this;
+    }
 
     public ColumnSpec setPrecisionAndScale(Integer precision, Integer scale) {
         this.precision = precision;
@@ -89,13 +187,6 @@ public class ColumnSpec {
         this.decimalType = dataType.equals("decimal");
         this.dataType = dataType;
         return this;
-    }
-
-    public String getColumnType() {
-        if (Objects.isNull(columnType)) {
-            return setColumnType();
-        }
-        return this.columnType;
     }
 
     public boolean isGeometry() {

@@ -1,40 +1,67 @@
 package cc.ddrpa.dorian.elias.core.spec;
 
 import java.util.Objects;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.experimental.Accessors;
 
-@Accessors(chain = true)
 public class ColumnSpecBuilder {
 
-    @Setter
     private String name;
 
     // SQL 数据类型，例如 varchar
-    @Setter
     private String dataType;
 
     // 对于字符和 blob 类型，为最大长度，非字符串类型为可视长度
-    @Setter
     private long length = -1L;
     // 对于整数类型，为精度
-    @Setter
     private int precision = -1;
     // 对于 decimal 类型，为小数位数
-    @Setter
     private int scale = -1;
     // 几何数据类型使用
-    @Setter
     private int srid = -1;
-    @Getter
     private boolean primaryKey = false;
     private boolean autoIncrement = false;
     private boolean nullable = true;
     private String defaultValue;
 
-    @Setter
     private String comment;
+
+    public ColumnSpecBuilder setName(String name) {
+        this.name = name;
+        return this;
+    }
+
+    public ColumnSpecBuilder setDataType(String dataType) {
+        this.dataType = dataType;
+        return this;
+    }
+
+    public ColumnSpecBuilder setLength(long length) {
+        this.length = length;
+        return this;
+    }
+
+    public ColumnSpecBuilder setPrecision(int precision) {
+        this.precision = precision;
+        return this;
+    }
+
+    public ColumnSpecBuilder setScale(int scale) {
+        this.scale = scale;
+        return this;
+    }
+
+    public ColumnSpecBuilder setSrid(int srid) {
+        this.srid = srid;
+        return this;
+    }
+
+    public boolean isPrimaryKey() {
+        return primaryKey;
+    }
+
+    public ColumnSpecBuilder setComment(String comment) {
+        this.comment = comment;
+        return this;
+    }
 
     public ColumnSpecBuilder setPrimaryKey(boolean isAutoIncrement) {
         this.primaryKey = true;
