@@ -18,8 +18,10 @@ public class DateTimeSpecBuilderFactory implements SpecBuilderFactory {
     private static final List<String> ACCEPTED_DATETIME_TYPE = List.of(
         "java.time.LocalDateTime",
         "java.time.OffsetDateTime",
+        "java.time.ZonedDateTime",
         "java.sql.Timestamp",
-        "java.util.Date"
+        "java.util.Date",
+        "java.time.Instant"
     );
 
     @Override

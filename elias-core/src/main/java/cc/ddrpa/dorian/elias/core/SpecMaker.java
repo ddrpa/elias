@@ -23,14 +23,7 @@ import cc.ddrpa.dorian.elias.core.spec.IndexSpec;
 import cc.ddrpa.dorian.elias.core.spec.SpatialIndexSpec;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
 import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -241,10 +234,14 @@ public class SpecMaker {
     private static ColumnSpec processField(Field field) {
         logger.trace("process field: {}", field.getName());
         String fieldTypeName = field.getType().getName();
-        ColumnSpecBuilder builder = factories.stream().
+        Optional<SpecBuilderFactory> factory = factories.stream().
             filter(f -> f.fit(fieldTypeName, field))
-            .findFirst()
-            .get().builder(field);
-        return builder.build();
+            .findFirst();
+        if (factory.isEmpty()) {
+            throw new IllegalStateException(
+                "No suitable SpecBuilderFactory found for field: " + field.getName() +
+                    " with type: " + fieldTypeName);
+        }
+        return factory.get().builder(field).build();
     }
 }
