@@ -4,25 +4,32 @@ import java.util.ArrayList;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/**
+ * Configuration properties for Elias Spring Boot integration.
+ * 
+ * <p>Controls schema validation behavior including package scanning,
+ * mismatch handling, and auto-fix options. Properties are bound from
+ * the {@code elias.validate} prefix in application configuration.
+ */
 @ConfigurationProperties(prefix = "elias.validate")
 public class EliasProperties {
 
     /**
-     * 开启 schema 检查
+     * Enables schema validation at application startup.
      */
     private boolean enable = false;
     /**
-     * 扫描行为
+     * Package scanning configuration for entity discovery.
      */
     private ScanProperties scan = new ScanProperties();
     /**
-     * 发现定义与数据库实际情况有差异时不停止运行
-     * <p>
-     * 不建议，可能存在不止一个差异，而检查器在发现某些差异后会跳过这张表的后续检查
+     * Continues application startup even when schema mismatches are found.
+     * 
+     * <p>Not recommended as multiple issues may exist and some checks are skipped after errors.
      */
     private boolean stopOnMismatch = false;
     /**
-     * 自动应用增量型修改
+     * Automatically applies safe schema modifications to fix mismatches.
      */
     private boolean autoFix = false;
 

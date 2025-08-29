@@ -6,25 +6,40 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * 覆盖列的类型，注意对 VARCHAR 和 CHAR 类型，length 表示的是字符长度，其他情况下则表示可视长度
- * <p>
- * 优先级高于类型推断，但低于 Id 之类的声明
+ * Overrides the automatic database column type inference for a field.
+ * 
+ * <p>This annotation has higher priority than automatic type inference but lower priority
+ * than primary key declarations ({@code @TableId}). For VARCHAR and CHAR types, the length
+ * represents character length; for other types it represents display length.
+ * 
+ * <p>Useful when the default type mapping doesn't meet specific requirements:
+ * <pre>{@code
+ * @TypeOverride(type = "TEXT")
+ * private String longDescription;
+ * 
+ * @TypeOverride(type = "DECIMAL", length = 10)
+ * private BigDecimal price;
+ * }</pre>
  */
 @Target({ElementType.FIELD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface TypeOverride {
 
     /**
-     * 列类型
-     *
-     * @return
+     * Database column type to use instead of inferred type.
+     * 
+     * @return SQL column type (e.g., "TEXT", "DECIMAL", "LONGBLOB")
      */
     String type();
 
     /**
-     * 列长度
-     *
-     * @return
+     * Length/precision for the column type.
+     * 
+     * <p>For character types (VARCHAR, CHAR): character length<br>
+     * For numeric types: display length/precision<br>
+     * Use -1 to omit length specification.
+     * 
+     * @return column length or -1 for default/no length
      */
     long length() default -1L;
 }

@@ -3,6 +3,9 @@ package cc.ddrpa.dorian.elias.core.factory;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpecBuilder;
 import java.lang.reflect.Field;
 
+/**
+ * Factory for BLOB column specifications from byte arrays and Blob types.
+ */
 public class BlobSpecBuilderFactory implements SpecBuilderFactory {
 
     @Override

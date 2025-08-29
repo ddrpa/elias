@@ -4,6 +4,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Complete specification for a database table including columns, indexes, and spatial indexes.
+ * 
+ * <p>This class represents the final output of Java class analysis and serves as input
+ * for SQL generation. It contains all information needed to create or validate a database table.
+ * 
+ * <p>Instances are typically created by {@link cc.ddrpa.dorian.elias.core.SpecMaker#makeTableSpec(Class)}
+ * and consumed by SQL generators in the generator module.
+ */
 public class TableSpec {
 
     private String name;

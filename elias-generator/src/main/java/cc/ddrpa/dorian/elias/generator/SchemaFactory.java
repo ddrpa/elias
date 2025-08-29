@@ -15,6 +15,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Main entry point for generating SQL DDL from Java entity classes.
+ * 
+ * <p>This class provides a fluent API to configure entity discovery and generate complete
+ * SQL database schemas. It combines {@link EntitySearcher} for class discovery with
+ * {@link SpecMaker} for specification generation and {@link SQLGenerator} for final output.
+ * 
+ * <p>Typical usage:
+ * <pre>{@code
+ * new SchemaFactory()
+ *     .addPackage("com.example.entities")
+ *     .useAnnotation(Entity.class)
+ *     .export("schema.sql", new MySQL57Generator());
+ * }</pre>
+ */
 public class SchemaFactory {
 
     private final Logger logger = LoggerFactory.getLogger(SchemaFactory.class);
@@ -22,10 +37,10 @@ public class SchemaFactory {
     private final EntitySearcher entitySearcher = new EntitySearcher();
 
     /**
-     * 添加指定包下的所有符合条件的类
-     *
-     * @param packageRef
-     * @return
+     * Includes all eligible classes from the specified package in schema generation.
+     * 
+     * @param packageRef package name to scan (e.g., "com.example.entities")
+     * @return this factory instance for method chaining
      */
     public SchemaFactory addPackage(String packageRef) {
         entitySearcher.addPackage(packageRef);
@@ -33,11 +48,11 @@ public class SchemaFactory {
     }
 
     /**
-     * 添加一个特定的类
-     *
-     * @param clazz
-     * @param <T>
-     * @return
+     * Includes a specific class in schema generation.
+     * 
+     * @param clazz the entity class to include
+     * @param <T> class type parameter
+     * @return this factory instance for method chaining
      */
     public <T> SchemaFactory addClass(Class<T> clazz) {
         classes.add(clazz);
@@ -45,11 +60,13 @@ public class SchemaFactory {
     }
 
     /**
-     * 额外搜索使用指定注解的类
-     *
-     * @param annotationClass
-     * @param <A>
-     * @return
+     * Configures entity discovery to include classes annotated with the specified annotation.
+     * 
+     * <p>This is in addition to the default {@link cc.ddrpa.dorian.elias.core.annotation.EliasTable} scanning.
+     * 
+     * @param annotationClass annotation to search for (e.g., Entity.class, Table.class)
+     * @param <A> annotation type parameter
+     * @return this factory instance for method chaining
      */
     public <A extends Annotation> SchemaFactory useAnnotation(Class<A> annotationClass) {
         entitySearcher.useAnnotation(annotationClass);
@@ -57,10 +74,16 @@ public class SchemaFactory {
     }
 
     /**
-     * 导出 SQL 文件
-     *
-     * @param outputFile
-     * @throws IOException
+     * Generates and exports SQL DDL to the specified file.
+     * 
+     * <p>Discovers all configured entity classes, converts them to table specifications,
+     * and generates SQL CREATE TABLE statements using the provided generator. Classes
+     * are processed in alphabetical order by simple name.
+     * 
+     * @param outputFile path to the output SQL file
+     * @param generator SQL generator implementation (e.g., MySQL57Generator)
+     * @throws IOException if file writing fails
+     * @throws RuntimeException if table specification generation fails
      */
     public void export(String outputFile, SQLGenerator generator) throws IOException {
         classes.addAll(entitySearcher.search());
