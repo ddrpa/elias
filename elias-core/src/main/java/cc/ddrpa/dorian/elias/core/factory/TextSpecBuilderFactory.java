@@ -7,6 +7,12 @@ import cc.ddrpa.dorian.elias.core.ConstantsPool;
 import java.lang.reflect.Field;
 import java.util.Objects;
 
+/**
+ * Factory for text column specifications (VARCHAR, CHAR, TEXT) from String fields.
+ * 
+ * <p>Handles string fields with special text annotations like {@link UseText} and {@link CharLength}.
+ * Provides intelligent defaults for string length based on field characteristics.
+ */
 public class TextSpecBuilderFactory implements SpecBuilderFactory {
 
     @Override

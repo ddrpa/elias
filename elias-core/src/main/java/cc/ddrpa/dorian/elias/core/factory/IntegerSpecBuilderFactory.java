@@ -4,6 +4,11 @@ import cc.ddrpa.dorian.elias.core.spec.ColumnSpecBuilder;
 import java.lang.reflect.Field;
 import java.util.List;
 
+/**
+ * Factory for integer column specifications (INT, BIGINT, TINYINT) from numeric fields.
+ * 
+ * <p>Maps Java integer types to appropriate MySQL integer column types based on size requirements.
+ */
 public class IntegerSpecBuilderFactory implements SpecBuilderFactory {
 
     private static final List<String> ACCEPTED_BIG_INTEGER_TYPES = List.of(

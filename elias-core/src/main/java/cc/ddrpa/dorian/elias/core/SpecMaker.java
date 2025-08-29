@@ -83,12 +83,13 @@ public class SpecMaker {
     public static TableSpec makeTableSpec(Class<?> clazz) {
         TableSpec tableSpec = new TableSpec();
         tableSpec.setName(SpecUtils.getTableName(clazz));
-        // 处理类成员
+        // Process class fields including inherited ones
         Set<Field> fields = ReflectionUtils.get(Fields.of(clazz));
-        // java.io.Serial 在 Java 11 中不可用，且该注解不会在运行时出现，无法用于判断是否忽略
         List<ColumnSpec> columns = fields.stream()
             .filter(SpecUtils::shouldIgnoreColumn)
             .map(f -> {
+                // Calculate inheritance depth to ensure superclass fields are processed first
+                // This maintains consistent column ordering across inheritance hierarchies
                 Class<?> fClazz = f.getDeclaringClass();
                 int depth = 0;
                 while (fClazz != null) {

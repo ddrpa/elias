@@ -20,6 +20,20 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 
+/**
+ * Spring Boot auto-configuration for Elias database schema validation.
+ * 
+ * <p>Automatically validates database schemas against entity classes at application startup
+ * when {@code elias.validate.enable} is true. Can optionally auto-fix schema mismatches
+ * based on configuration.
+ * 
+ * <p>This configuration activates when a {@link DataSource} is available and performs
+ * entity discovery, specification generation, and database validation during the
+ * {@link InitializingBean#afterPropertiesSet()} lifecycle phase.
+ * 
+ * @see EliasProperties
+ * @see SchemaChecker
+ */
 @Configuration
 @ConditionalOnClass(DataSource.class)
 @ConditionalOnExpression("${elias.validate.enable}")
