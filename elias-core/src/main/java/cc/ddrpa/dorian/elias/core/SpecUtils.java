@@ -10,6 +10,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 
+/**
+ * Utility methods for database schema generation and field processing.
+ * 
+ * <p>Provides naming convention conversions, field filtering logic, and other
+ * helper functions used throughout the schema generation process. This class
+ * handles integration with both Elias-specific annotations and MyBatis-Plus annotations.
+ */
 public class SpecUtils {
 
     private SpecUtils() {
@@ -17,9 +24,17 @@ public class SpecUtils {
     }
 
     /**
-     * 判断某个字段是否需要忽略
-     *
-     * @param field
+     * Determines if a field should be excluded from database column generation.
+     * 
+     * <p>Fields are ignored if they are:
+     * <ul>
+     * <li>Annotated with {@link EliasIgnore}
+     * <li>Static or transient fields
+     * <li>MyBatis-Plus fields marked as non-existent ({@code exist = false})
+     * </ul>
+     * 
+     * @param field the field to check
+     * @return true if the field should be ignored, false if it should generate a column
      */
     public static boolean shouldIgnoreColumn(Field field) {
         // 如果字段是静态的，忽略
@@ -49,10 +64,13 @@ public class SpecUtils {
     }
 
     /**
-     * 驼峰转蛇形
-     *
-     * @param text
-     * @return
+     * Converts camelCase strings to snake_case database naming convention.
+     * 
+     * <p>Transforms Java field/class names to database-compatible names by inserting
+     * underscores before uppercase letters and converting to lowercase.
+     * 
+     * @param text camelCase string to convert
+     * @return snake_case version of the input
      */
     public static String camelCaseToSnakeCase(String text) {
         Matcher m = Pattern.compile("(?<=[a-z])[A-Z]").matcher(text);
@@ -60,10 +78,17 @@ public class SpecUtils {
     }
 
     /**
-     * 推断表名
-     *
-     * @param clazz
-     * @return
+     * Determines the database table name for a Java class.
+     * 
+     * <p>Naming priority:
+     * <ol>
+     * <li>{@link TableName} annotation value (MyBatis-Plus)
+     * <li>{@link EliasTable} annotation value
+     * <li>Class simple name converted to snake_case
+     * </ol>
+     * 
+     * @param clazz the entity class
+     * @return database table name
      */
     public static String getTableName(Class<?> clazz) {
         if (clazz.isAnnotationPresent(TableName.class)) {
@@ -82,10 +107,16 @@ public class SpecUtils {
     }
 
     /**
-     * 推断列名
-     *
-     * @param field
-     * @return
+     * Determines the database column name for a Java field.
+     * 
+     * <p>Naming priority:
+     * <ol>
+     * <li>{@link TableField} annotation value (MyBatis-Plus)
+     * <li>Field name converted to snake_case
+     * </ol>
+     * 
+     * @param field the entity field
+     * @return database column name
      */
     public static String getColumnName(Field field) {
         if (field.isAnnotationPresent(TableField.class)) {

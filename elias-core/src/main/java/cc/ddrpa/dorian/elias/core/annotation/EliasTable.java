@@ -6,40 +6,53 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
+ * Marks a Java class for database table generation and schema validation.
+ * 
+ * <p>This annotation serves two primary purposes:
  * <ul>
- * <li>在创建 DDL 的阶段要求 elias 为该实体类类生成表</li>
- * <li>在运行阶段要求 elias 检查数据库中的表是否与定义一致</li>
+ * <li>During DDL generation: Indicates that Elias should create a table for this entity class</li>
+ * <li>During runtime validation: Marks tables that should be checked for schema consistency</li>
  * </ul>
+ * 
+ * <p>The annotation supports advanced features like index definitions, spatial indexes for geometry
+ * fields, and table name customization. Classes without this annotation are ignored during
+ * entity discovery unless explicitly included via other mechanisms.
+ * 
+ * @see cc.ddrpa.dorian.elias.core.SpecMaker#makeTableSpec(Class)
+ * @see cc.ddrpa.dorian.elias.core.EntitySearcher
  */
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface EliasTable {
 
     /**
-     * 可以手动关闭或开启表的生成
-     *
-     * @return
+     * Controls whether table generation is enabled for this entity.
+     * 
+     * @return true to generate/validate the table, false to skip this entity
      */
     boolean enable() default true;
 
     /**
-     * 表名前缀，例如 'tbl_'
-     *
-     * @return
+     * Optional table name prefix to prepend to the generated table name.
+     * 
+     * @return prefix string (e.g., "tbl_", "app_") or empty string for no prefix
      */
     String tablePrefix() default "";
 
     /**
-     * 声明索引，和 Jakarta Persistence 的行为差不多
-     *
-     * @return
+     * Regular index definitions for this table.
+     * 
+     * <p>Similar to Jakarta Persistence API index definitions. Each index can specify
+     * column names, sort order, and uniqueness constraints.
+     * 
+     * @return array of index definitions
      */
     Index[] indexes() default {};
 
     /**
-     * 为几何类型的非空字段自动创建空间索引
-     *
-     * @return
+     * Automatically creates spatial indexes for non-nullable geometry columns.
+     * 
+     * @return true to auto-create spatial indexes, false to skip automatic creation
      */
     boolean autoSpatialIndexForGeometry() default true;
 

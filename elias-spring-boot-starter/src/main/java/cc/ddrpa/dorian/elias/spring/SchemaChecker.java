@@ -23,6 +23,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+/**
+ * Spring Boot integration for validating and auto-fixing database schemas at startup.
+ * 
+ * <p>This class compares Java entity specifications against actual database metadata
+ * and can automatically apply schema changes to keep them synchronized. It supports
+ * detecting missing tables, missing columns, and column type mismatches.
+ * 
+ * <p>Typical usage in Spring Boot context:
+ * <pre>{@code
+ * @Autowired
+ * public void validateSchema(JdbcTemplate jdbcTemplate) throws Exception {
+ *     List<TableSpec> specs = // ... generate from entities
+ *     boolean issuesFound = new SchemaChecker(jdbcTemplate)
+ *         .setAutoFix(true)
+ *         .addTableSpecies(specs)
+ *         .check();
+ * }
+ * }</pre>
+ */
 public class SchemaChecker {
 
     private static final String FETCH_METADATA_SQL = "select COLUMN_NAME, COLUMN_DEFAULT, IS_NULLABLE, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, COLUMN_TYPE from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA = ? and TABLE_NAME = ?";

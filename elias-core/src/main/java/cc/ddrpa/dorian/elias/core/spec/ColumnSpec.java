@@ -3,6 +3,15 @@ package cc.ddrpa.dorian.elias.core.spec;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Complete specification for a database table column including type, constraints, and metadata.
+ * 
+ * <p>This class captures all properties needed to define a database column, from basic information
+ * like name and data type to advanced features like spatial data support and geometric types.
+ * 
+ * <p>Instances are created by {@link cc.ddrpa.dorian.elias.core.factory.SpecBuilderFactory} 
+ * implementations during Java field processing.
+ */
 public class ColumnSpec {
 
     private static final List<String> GEOMETRY_TYPES = List.of(

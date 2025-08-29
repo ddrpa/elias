@@ -14,6 +14,21 @@ import java.util.Set;
 import org.reflections.Reflections;
 import org.reflections.util.ConfigurationBuilder;
 
+/**
+ * Utility for discovering entity classes in specified packages using reflection.
+ * 
+ * <p>This class provides a fluent API for configuring package scanning to find classes
+ * that should be converted to database tables. It supports both annotation-based discovery
+ * (finding classes with specific annotations) and general {@link EliasTable} annotation scanning.
+ * 
+ * <p>Typical usage:
+ * <pre>{@code
+ * Set<Class<?>> entities = new EntitySearcher()
+ *     .addPackage("com.example.model")
+ *     .useAnnotation(Entity.class)
+ *     .search();
+ * }</pre>
+ */
 public class EntitySearcher {
 
     private final List<String> includePackages = new ArrayList<>(1);
@@ -21,10 +36,10 @@ public class EntitySearcher {
     private final Set<Class<? extends Annotation>> annotationClasses = new HashSet<>();
 
     /**
-     * 添加实体类搜索路径
-     *
-     * @param packageRef
-     * @return
+     * Adds a package path for entity class discovery.
+     * 
+     * @param packageRef package name to scan (e.g., "com.example.model")
+     * @return this searcher instance for method chaining
      */
     public EntitySearcher addPackage(String packageRef) {
         includePackages.add(packageRef);
@@ -32,10 +47,10 @@ public class EntitySearcher {
     }
 
     /**
-     * 添加多个实体类搜索路径
-     *
-     * @param packageRefs
-     * @return
+     * Adds multiple package paths for entity class discovery.
+     * 
+     * @param packageRefs collection of package names to scan
+     * @return this searcher instance for method chaining
      */
     public EntitySearcher addPackages(Collection<String> packageRefs) {
         includePackages.addAll(packageRefs);
@@ -43,10 +58,13 @@ public class EntitySearcher {
     }
 
     /**
-     * 要求 Elias 搜索使用该注解修饰的类
-     *
-     * @param annotationClass
-     * @return
+     * Configures the searcher to find classes annotated with the specified annotation.
+     * 
+     * <p>Classes found must have the annotation present at runtime. This is in addition
+     * to the default {@link EliasTable} annotation scanning.
+     * 
+     * @param annotationClass annotation class to search for (e.g., Entity.class)
+     * @return this searcher instance for method chaining
      */
     public EntitySearcher useAnnotation(Class<? extends Annotation> annotationClass) {
         annotationClasses.add(annotationClass);
@@ -55,9 +73,13 @@ public class EntitySearcher {
     }
 
     /**
-     * 查找类
-     *
-     * @return
+     * Executes the search and returns all discovered entity classes.
+     * 
+     * <p>Scans all configured packages for classes with {@link EliasTable} annotations
+     * and any additional annotations specified via {@link #useAnnotation(Class)}.
+     * Classes that inherit annotations but don't have them directly are filtered out.
+     * 
+     * @return set of discovered entity classes ready for schema generation
      */
     public Set<Class<?>> search() {
         for (String packageRef : includePackages) {

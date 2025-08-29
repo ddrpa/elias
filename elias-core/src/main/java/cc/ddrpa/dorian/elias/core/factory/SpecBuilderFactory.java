@@ -14,11 +14,50 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Factory interface for creating database column specifications from Java fields.
+ * 
+ * <p>Implementations determine if they can handle a specific Java field type and provide
+ * a {@link ColumnSpecBuilder} configured with appropriate database column properties.
+ * The factory pattern allows extensible type mapping support.
+ * 
+ * <p>The default {@link #builder(Field)} method handles common annotation processing
+ * including MyBatis-Plus annotations ({@code @TableId}, {@code @TableField}, {@code @TableLogic})
+ * and validation annotations ({@code @NotNull}, etc.).
+ * 
+ * @see ColumnSpecBuilder
+ */
 public interface SpecBuilderFactory {
 
     Logger logger = LoggerFactory.getLogger(SpecBuilderFactory.class);
 
+    /**
+     * Determines if this factory can handle the specified field type.
+     * 
+     * @param fieldTypeName fully qualified name of the field's type
+     * @param field the Java field being processed
+     * @return true if this factory can create a column specification for this field
+     */
     boolean fit(String fieldTypeName, Field field);
+
+    /**
+     * Creates a column specification builder for the given field.
+     * 
+     * <p>The default implementation handles common annotation processing:
+     * <ul>
+     * <li>Column naming from {@code @TableId} or {@code @TableField} annotations
+     * <li>Primary key detection from {@code @TableId}
+     * <li>Auto-increment detection from {@code @TableId} type
+     * <li>Default values from {@code @TableLogic} and {@code @DefaultValue}
+     * <li>Nullability from validation annotations ({@code @NotNull}, etc.)
+     * </ul>
+     * 
+     * <p>Implementations should call this default method and then configure
+     * type-specific properties like data type, length, and precision.
+     * 
+     * @param field the Java field to process
+     * @return configured column specification builder
+     */
 
     default ColumnSpecBuilder builder(Field field) {
         ColumnSpecBuilder builder = new ColumnSpecBuilder();
