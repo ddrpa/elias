@@ -2,11 +2,8 @@ package cc.ddrpa.dorian.elias.core.factory;
 
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpecBuilder;
 import com.baomidou.mybatisplus.annotation.IEnum;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
+
+import java.lang.reflect.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -22,12 +19,14 @@ public class EnumSpecBuilderFactory implements SpecBuilderFactory {
     public ColumnSpecBuilder builder(Field field) {
         ColumnSpecBuilder builder = SpecBuilderFactory.super.builder(field);
         builder.setDataType("tinyint")
-            .setLength(deriveDataLength(field.getType()));
+                .setLength(deriveDataLength(field.getType()));
         return builder;
     }
 
     /**
      * 根据枚举成员的数量和 getValue 方法推断需要的 byte 长度能够覆盖值范围
+     * <p>
+     * 但是长度必须至少为 2,以免和代表布尔值的 tinyint(1) 混淆
      *
      * @param fieldType
      * @return
@@ -40,10 +39,9 @@ public class EnumSpecBuilderFactory implements SpecBuilderFactory {
          */
         boolean implementsIEnum = false;
         for (Type iface : fieldType.getGenericInterfaces()) {
-            if (iface instanceof ParameterizedType) {
-                ParameterizedType pt = (ParameterizedType) iface;
+            if (iface instanceof ParameterizedType pt) {
                 if (pt.getRawType().getTypeName()
-                    .equals("com.baomidou.mybatisplus.annotation.IEnum")) {
+                        .equals("com.baomidou.mybatisplus.annotation.IEnum")) {
                     Type typeArg = pt.getActualTypeArguments()[0];
                     if (typeArg.getTypeName().equals("java.lang.Integer")) {
                         implementsIEnum = true;
@@ -59,9 +57,10 @@ public class EnumSpecBuilderFactory implements SpecBuilderFactory {
             } catch (Exception ignored) {
             }
         }
-        return (long) Math.ceil(
-            (Math.log(valueRange) / Math.log(2)) / 8
+        long recommendSize = (long) Math.ceil(
+                (Math.log(valueRange) / Math.log(2)) / 8
         );
+        return Math.max(recommendSize, 2);
     }
 
     /**
@@ -75,7 +74,7 @@ public class EnumSpecBuilderFactory implements SpecBuilderFactory {
      * @throws IllegalAccessException
      */
     protected Integer getValueRange(Class<?> fieldType, Object[] enumConstants)
-        throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         Method getValueMethod = fieldType.getMethod("getValue");
         List<Integer> values = new ArrayList<>();
         for (Object constant : enumConstants) {

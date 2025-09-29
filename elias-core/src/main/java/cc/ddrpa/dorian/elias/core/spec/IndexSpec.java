@@ -40,9 +40,9 @@ public class IndexSpec {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         IndexSpec indexSpec = (IndexSpec) o;
-        return unique == indexSpec.unique && 
-               Objects.equals(name, indexSpec.name) && 
-               Objects.equals(columns, indexSpec.columns);
+        return unique == indexSpec.unique &&
+                Objects.equals(name, indexSpec.name) &&
+                Objects.equals(columns, indexSpec.columns);
     }
 
     @Override

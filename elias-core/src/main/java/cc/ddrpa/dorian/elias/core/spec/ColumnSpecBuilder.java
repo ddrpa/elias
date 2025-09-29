@@ -58,11 +58,6 @@ public class ColumnSpecBuilder {
         return primaryKey;
     }
 
-    public ColumnSpecBuilder setComment(String comment) {
-        this.comment = comment;
-        return this;
-    }
-
     public ColumnSpecBuilder setPrimaryKey(boolean isAutoIncrement) {
         this.primaryKey = true;
         // 主键不允许为 null
@@ -70,6 +65,11 @@ public class ColumnSpecBuilder {
         this.autoIncrement = isAutoIncrement;
         // 主键不允许有默认值
         this.defaultValue = null;
+        return this;
+    }
+
+    public ColumnSpecBuilder setComment(String comment) {
+        this.comment = comment;
         return this;
     }
 
@@ -91,7 +91,7 @@ public class ColumnSpecBuilder {
 
     public ColumnSpec build() {
         ColumnSpec spec = new ColumnSpec()
-            .setName(this.name);
+                .setName(this.name);
         spec.setDataType(this.dataType);
         if (this.length > 0) {
             spec.setLength(this.length);
@@ -102,8 +102,8 @@ public class ColumnSpecBuilder {
         }
         if (this.primaryKey) {
             spec.setPrimaryKey(true)
-                .setAutoIncrement(this.autoIncrement)
-                .setNullable(false);
+                    .setAutoIncrement(this.autoIncrement)
+                    .setNullable(false);
         } else {
             spec.setNullable(this.nullable);
             if (Objects.nonNull(this.defaultValue)) {

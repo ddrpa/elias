@@ -5,15 +5,36 @@ import java.util.List;
 
 public class ColumnModifySpec {
 
+    // ========== 完整列信息 ==========
+    /**
+     * 列类型，例如 varchar(255)
+     */
+    private String columnType;
+    /**
+     * 是否可空
+     */
+    private boolean nullable;
+    /**
+     * 默认值
+     */
+    private String defaultValue;
+
+    // ========== 修改标记 ==========
+    /**
+     * 需要修改列类型
+     */
     private boolean alterColumnType = false;
-    private String newColumnType;
+    /**
+     * 需要修改是否可空
+     */
     private boolean alterNullable = false;
-    private boolean newNullable;
+    /**
+     * 需要修改默认值
+     */
     private boolean alterDefaultValue = false;
-    private String newDefaultValue;
 
     private boolean autoFixEnabled = true;
-    private List<String> warnings = new ArrayList<>(0);
+    private final List<String> warnings = new ArrayList<>(0);
 
     /**
      * 变更是否可以自动执行
@@ -34,6 +55,15 @@ public class ColumnModifySpec {
         this.autoFixEnabled = false;
     }
 
+    /**
+     * 添加警告信息，但不禁用自动修复
+     *
+     * @param warning 警告信息
+     */
+    public void addWarning(String warning) {
+        warnings.add(warning);
+    }
+
     public List<String> getWarnings() {
         return warnings;
     }
@@ -47,12 +77,12 @@ public class ColumnModifySpec {
         return this;
     }
 
-    public String getNewColumnType() {
-        return newColumnType;
+    public String getColumnType() {
+        return columnType;
     }
 
-    public ColumnModifySpec setNewColumnType(String newColumnType) {
-        this.newColumnType = newColumnType;
+    public ColumnModifySpec setColumnType(String columnType) {
+        this.columnType = columnType;
         return this;
     }
 
@@ -65,12 +95,12 @@ public class ColumnModifySpec {
         return this;
     }
 
-    public boolean isNewNullable() {
-        return newNullable;
+    public boolean isNullable() {
+        return nullable;
     }
 
-    public ColumnModifySpec setNewNullable(boolean newNullable) {
-        this.newNullable = newNullable;
+    public ColumnModifySpec setNullable(boolean nullable) {
+        this.nullable = nullable;
         return this;
     }
 
@@ -83,12 +113,12 @@ public class ColumnModifySpec {
         return this;
     }
 
-    public String getNewDefaultValue() {
-        return newDefaultValue;
+    public String getDefaultValue() {
+        return defaultValue;
     }
 
-    public ColumnModifySpec setNewDefaultValue(String newDefaultValue) {
-        this.newDefaultValue = newDefaultValue;
+    public ColumnModifySpec setDefaultValue(String defaultValue) {
+        this.defaultValue = defaultValue;
         return this;
     }
 }

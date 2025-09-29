@@ -3,6 +3,7 @@ package cc.ddrpa.dorian.elias.core.factory;
 import cc.ddrpa.dorian.elias.core.annotation.enums.SpatialDataType;
 import cc.ddrpa.dorian.elias.core.annotation.preset.IsGeo;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpecBuilder;
+
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
@@ -47,13 +48,13 @@ public class GeometrySpecBuilderFactory implements SpecBuilderFactory {
         if (field.isAnnotationPresent(IsGeo.class)) {
             IsGeo isGeoAnno = Objects.requireNonNull(field.getAnnotation(IsGeo.class));
             builder.setDataType(ENUM_TYPE_MAP.get(isGeoAnno.type()))
-                .setSrid(isGeoAnno.srid())
-                .setNullable(isGeoAnno.nullable());
+                    .setSrid(isGeoAnno.srid())
+                    .setNullable(isGeoAnno.nullable());
         } else {
             // 除非特别指定，为了添加空间索引，地理空间数据类型不允许为 NULL
             // NEED_CHECK
             builder.setDataType(CLASS_TYPE_MAP.get(field.getType().getName()))
-                .setNullable(false);
+                    .setNullable(false);
         }
         return builder;
     }

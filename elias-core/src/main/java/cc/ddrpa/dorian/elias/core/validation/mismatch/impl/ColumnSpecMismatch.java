@@ -1,16 +1,24 @@
 package cc.ddrpa.dorian.elias.core.validation.mismatch.impl;
 
+import cc.ddrpa.dorian.elias.core.spec.ColumnSpec;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.ISpecMismatch;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+/**
+ * 列规格不匹配
+ */
 public class ColumnSpecMismatch implements ISpecMismatch {
 
-    private Boolean columnTypeMismatch = false;
-    private Boolean dataTypeMismatch = false;
-    private Boolean lengthMismatch = false;
+    /**
+     * 列类型定义不匹配
+     */
+    private boolean columnTypeMismatch = false;
+    private boolean dataTypeMismatch = false;
+    private boolean lengthMismatch = false;
 
     private String expectedDataType;
     private String actualDataType;
@@ -19,24 +27,35 @@ public class ColumnSpecMismatch implements ISpecMismatch {
     private String expectedColumnType;
     private String actualColumnType;
 
-    private Boolean nullableMismatch = false;
+    /**
+     * 可空属性不匹配
+     */
+    private boolean nullableMismatch = false;
     private Boolean expectedNullable;
     private Boolean actualNullable;
 
-    private Boolean defaultValueMismatch = false;
+    /**
+     * 默认值不匹配
+     */
+    private boolean defaultValueMismatch = false;
     private String expectedDefaultValue;
     private String actualDefaultValue;
 
     private String tableName;
     private String columnName;
 
+    /**
+     * 期望的列规格
+     */
+    private ColumnSpec expectedColumnSpec;
+
     public ColumnSpecMismatch columnTypeMismatch(
-        String expectedColumnType,
-        String actualColumnType,
-        String expectedDataType,
-        String actualDataType,
-        Long expectedLength,
-        Long actualLength) {
+            String expectedColumnType,
+            String actualColumnType,
+            String expectedDataType,
+            String actualDataType,
+            Long expectedLength,
+            Long actualLength) {
         this.expectedColumnType = expectedColumnType;
         this.actualColumnType = actualColumnType;
         this.expectedDataType = expectedDataType;
@@ -49,8 +68,8 @@ public class ColumnSpecMismatch implements ISpecMismatch {
         return this;
     }
 
-    public ColumnSpecMismatch addNullableMismatch(Boolean expectedNullable,
-        Boolean actualNullable) {
+    public ColumnSpecMismatch addNullableMismatch(boolean expectedNullable,
+                                                  boolean actualNullable) {
         this.expectedNullable = expectedNullable;
         this.actualNullable = actualNullable;
         nullableMismatch = true;
@@ -58,7 +77,7 @@ public class ColumnSpecMismatch implements ISpecMismatch {
     }
 
     public ColumnSpecMismatch addDefaultValueMismatch(String expectedDefaultValue,
-        String actualDefaultValue) {
+                                                      String actualDefaultValue) {
         this.expectedDefaultValue = expectedDefaultValue;
         this.actualDefaultValue = actualDefaultValue;
         this.defaultValueMismatch = true;
@@ -70,34 +89,34 @@ public class ColumnSpecMismatch implements ISpecMismatch {
         List<String> mismatchMessages = new ArrayList<>(2);
         if (columnTypeMismatch) {
             mismatchMessages.add(
-                String.format("* Column type not match: expected '%s', actual '%s'",
-                    expectedColumnType, actualColumnType));
+                    String.format("* Column type not match: expected '%s', actual '%s'",
+                            expectedColumnType, actualColumnType));
         }
         if (nullableMismatch) {
             mismatchMessages.add(
-                String.format("* Different nullable property: expected '%s', actual '%s'",
-                    expectedNullable ? "YES" : "NO", actualNullable ? "YES" : "NO"));
+                    String.format("* Different nullable property: expected '%s', actual '%s'",
+                            expectedNullable ? "YES" : "NO", actualNullable ? "YES" : "NO"));
         }
         if (defaultValueMismatch) {
             mismatchMessages.add(String.format("* Default value not match: expected %s, actual %s",
-                Objects.isNull(expectedDefaultValue) ? "<null>"
-                    : String.format("'%s'", expectedDefaultValue),
-                Objects.isNull(actualDefaultValue) ? "<null>"
-                    : String.format("'%s'", actualDefaultValue)));
+                    Objects.isNull(expectedDefaultValue) ? "<null>"
+                            : String.format("'%s'", expectedDefaultValue),
+                    Objects.isNull(actualDefaultValue) ? "<null>"
+                            : String.format("'%s'", actualDefaultValue)));
         }
         return String.format("Column `%s` in table `%s` has specification mismatch:\n%s",
-            columnName, tableName, mismatchMessages.stream().collect(Collectors.joining("\n")));
+                columnName, tableName, mismatchMessages.stream().collect(Collectors.joining("\n")));
     }
 
-    public Boolean isColumnTypeMismatch() {
+    public boolean isColumnTypeMismatch() {
         return columnTypeMismatch;
     }
 
-    public Boolean isDataTypeMismatch() {
+    public boolean isDataTypeMismatch() {
         return dataTypeMismatch;
     }
 
-    public Boolean isLengthMismatch() {
+    public boolean isLengthMismatch() {
         return lengthMismatch;
     }
 
@@ -164,6 +183,15 @@ public class ColumnSpecMismatch implements ISpecMismatch {
 
     public ColumnSpecMismatch setColumnName(String columnName) {
         this.columnName = columnName;
+        return this;
+    }
+
+    public ColumnSpec getExpectedColumnSpec() {
+        return expectedColumnSpec;
+    }
+
+    public ColumnSpecMismatch setExpectedColumnSpec(ColumnSpec expectedColumnSpec) {
+        this.expectedColumnSpec = expectedColumnSpec;
         return this;
     }
 }

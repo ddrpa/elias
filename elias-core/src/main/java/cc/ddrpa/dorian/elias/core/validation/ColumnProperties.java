@@ -2,10 +2,11 @@ package cc.ddrpa.dorian.elias.core.validation;
 
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpec;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnSpecMismatch;
+import org.apache.commons.lang3.StringUtils;
+
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import org.apache.commons.lang3.StringUtils;
 
 /**
  * 列的属性，只检查类型、长度、是否可空、默认值
@@ -13,23 +14,23 @@ import org.apache.commons.lang3.StringUtils;
 public class ColumnProperties {
 
     // 列名
-    private String name;
+    private final String name;
     // 例如 varchar
-    private String dataType;
+    private final String dataType;
     // 例如 varchar(255)，有时候还会包含 unsigned 等信息
-    private String columnType;
+    private final String columnType;
     // 是否可空
-    private Boolean nullable;
+    private final Boolean nullable;
     // 是字符类型
-    private Boolean characterType;
+    private final Boolean characterType;
     // 是 TEXT 类型
-    private Boolean textType;
+    private final Boolean textType;
     // 是 Blob 类型
-    private Boolean blobType;
+    private final Boolean blobType;
     // 数据存储长度
-    private Optional<Long> dataLength;
+    private final Optional<Long> dataLength;
     // 默认值
-    private Optional<String> defaultValueAsString;
+    private final Optional<String> defaultValueAsString;
 
     public ColumnProperties(Map<String, Object> rawProperties) {
         this.name = rawProperties.get("COLUMN_NAME").toString();
@@ -41,7 +42,7 @@ public class ColumnProperties {
         this.blobType = dataType.equals("blob");
         if (Objects.nonNull(rawProperties.get("CHARACTER_MAXIMUM_LENGTH"))) {
             this.dataLength = Optional.of(
-                Long.parseLong(rawProperties.get("CHARACTER_MAXIMUM_LENGTH").toString()));
+                    Long.parseLong(rawProperties.get("CHARACTER_MAXIMUM_LENGTH").toString()));
         } else {
             this.dataLength = Optional.empty();
         }
@@ -72,16 +73,16 @@ public class ColumnProperties {
                 // 数值类型是可视长度，不检查
                 if (!Objects.equals(columnSpec.getLength(), dataLength.orElse(null))) {
                     columnSpecMismatch.columnTypeMismatch(columnSpec.getColumnType(), columnType,
-                        columnSpec.getDataType(), dataType,
-                        columnSpec.getLength(), dataLength.orElse(null));
+                            columnSpec.getDataType(), dataType,
+                            columnSpec.getLength(), dataLength.orElse(null));
                     columnSpecMismatchFlag = true;
                 }
             }
         } else {
             // DataType 不一致
             columnSpecMismatch.columnTypeMismatch(columnSpec.getColumnType(), columnType,
-                columnSpec.getDataType(), dataType,
-                columnSpec.getLength(), dataLength.orElse(null));
+                    columnSpec.getDataType(), dataType,
+                    columnSpec.getLength(), dataLength.orElse(null));
             columnSpecMismatchFlag = true;
         }
         // 检查 nullable 属性是否一致
@@ -97,11 +98,12 @@ public class ColumnProperties {
             }
         } else if (!Objects.equals(columnSpec.getDefaultValue(), defaultValueAsString.get())) {
             columnSpecMismatch.addDefaultValueMismatch(
-                columnSpec.getDefaultValue(),
-                defaultValueAsString.get());
+                    columnSpec.getDefaultValue(),
+                    defaultValueAsString.get());
             columnSpecMismatchFlag = true;
         }
         if (columnSpecMismatchFlag) {
+            columnSpecMismatch.setExpectedColumnSpec(columnSpec);
             return Optional.of(columnSpecMismatch);
         } else {
             return Optional.empty();

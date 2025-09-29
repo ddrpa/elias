@@ -3,6 +3,9 @@ package cc.ddrpa.dorian.elias.generator;
 import cc.ddrpa.dorian.elias.core.EntitySearcher;
 import cc.ddrpa.dorian.elias.core.SpecMaker;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
@@ -11,8 +14,6 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 public class SchemaFactory {
@@ -66,17 +67,17 @@ public class SchemaFactory {
         classes.addAll(entitySearcher.search());
 
         List<String> tableDSLList = classes.stream()
-            .sorted(Comparator.comparing(Class::getSimpleName))
-            .map(clazz -> {
-                logger.trace("Processing class: {}", clazz.getName());
-                TableSpec tableSpec = SpecMaker.makeTableSpec(clazz);
-                try {
-                    return generator.createTable(tableSpec);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            })
-            .toList();
+                .sorted(Comparator.comparing(Class::getSimpleName))
+                .map(clazz -> {
+                    logger.trace("Processing class: {}", clazz.getName());
+                    TableSpec tableSpec = SpecMaker.makeTableSpec(clazz);
+                    try {
+                        return generator.createTable(tableSpec);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .toList();
         try (FileOutputStream fos = new FileOutputStream(outputFile)) {
             for (String dsl : tableDSLList) {
                 fos.write(dsl.getBytes(StandardCharsets.UTF_8));

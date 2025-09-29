@@ -30,8 +30,8 @@ public class SpatialIndexSpec {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         SpatialIndexSpec that = (SpatialIndexSpec) o;
-        return Objects.equals(name, that.name) && 
-               Objects.equals(columns, that.columns);
+        return Objects.equals(name, that.name) &&
+                Objects.equals(columns, that.columns);
     }
 
     @Override

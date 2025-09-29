@@ -4,11 +4,12 @@ import cc.ddrpa.dorian.elias.core.annotation.EliasIgnore;
 import cc.ddrpa.dorian.elias.core.annotation.EliasTable;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
+import org.apache.commons.lang3.StringUtils;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.commons.lang3.StringUtils;
 
 public class SpecUtils {
 
@@ -41,9 +42,7 @@ public class SpecUtils {
          */
         if (field.isAnnotationPresent(com.baomidou.mybatisplus.annotation.TableField.class)) {
             TableField tableField = field.getAnnotation(TableField.class);
-            if (!tableField.exist()) {
-                return false;
-            }
+            return tableField.exist();
         }
         return true;
     }
@@ -75,7 +74,7 @@ public class SpecUtils {
             EliasTable eliasTableAnnotation = clazz.getAnnotation(EliasTable.class);
             if (StringUtils.isNoneBlank(eliasTableAnnotation.tablePrefix())) {
                 return eliasTableAnnotation.tablePrefix() + camelCaseToSnakeCase(
-                    clazz.getSimpleName()).toLowerCase();
+                        clazz.getSimpleName()).toLowerCase();
             }
         }
         return camelCaseToSnakeCase(clazz.getSimpleName()).toLowerCase();

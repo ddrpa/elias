@@ -2,6 +2,7 @@ package cc.ddrpa.dorian.elias.core.factory;
 
 import cc.ddrpa.dorian.elias.core.annotation.preset.IsUUIDAsStr;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpecBuilder;
+
 import java.lang.reflect.Field;
 
 public class CharSpecBuilderFactory implements SpecBuilderFactory {
@@ -12,7 +13,7 @@ public class CharSpecBuilderFactory implements SpecBuilderFactory {
             return true;
         }
         return fieldTypeName.equalsIgnoreCase("char")
-            || fieldTypeName.equalsIgnoreCase("java.lang.Character");
+                || fieldTypeName.equalsIgnoreCase("java.lang.Character");
     }
 
     @Override

@@ -1,18 +1,14 @@
 package cc.ddrpa.dorian.elias.core;
 
-import static org.reflections.scanners.Scanners.SubTypes;
-import static org.reflections.scanners.Scanners.TypesAnnotated;
-
 import cc.ddrpa.dorian.elias.core.annotation.EliasTable;
-import java.lang.annotation.Annotation;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
 import org.reflections.Reflections;
 import org.reflections.util.ConfigurationBuilder;
+
+import java.lang.annotation.Annotation;
+import java.util.*;
+
+import static org.reflections.scanners.Scanners.SubTypes;
+import static org.reflections.scanners.Scanners.TypesAnnotated;
 
 public class EntitySearcher {
 
@@ -75,9 +71,9 @@ public class EntitySearcher {
 
     private <A extends Annotation> void find(String packageRef, Class<A> annotationClass) {
         Reflections reflections = new Reflections(
-            new ConfigurationBuilder().forPackage(packageRef));
+                new ConfigurationBuilder().forPackage(packageRef));
         Set<Class<?>> annotated = reflections.get(
-            SubTypes.of(TypesAnnotated.with(annotationClass)).asClass());
+                SubTypes.of(TypesAnnotated.with(annotationClass)).asClass());
         for (Class<?> clazz : annotated) {
             A requiredAnnotation = clazz.getAnnotation(annotationClass);
             if (Objects.isNull(requiredAnnotation)) {
@@ -91,9 +87,9 @@ public class EntitySearcher {
 
     private void find(String packageRef) {
         Reflections reflections = new Reflections(
-            new ConfigurationBuilder().forPackage(packageRef));
+                new ConfigurationBuilder().forPackage(packageRef));
         Set<Class<?>> annotated = reflections.get(
-            SubTypes.of(TypesAnnotated.with(EliasTable.class)).asClass());
+                SubTypes.of(TypesAnnotated.with(EliasTable.class)).asClass());
         for (Class<?> clazz : annotated) {
             EliasTable eliasTable = clazz.getAnnotation(EliasTable.class);
             if (Objects.isNull(eliasTable)) {

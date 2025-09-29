@@ -21,8 +21,8 @@ public @interface IsJSON {
      */
     EmptyType emptyAs();
 
-    public static enum EmptyType {
+    enum EmptyType {
         OBJECT,
-        ARRAY;
+        ARRAY
     }
 }

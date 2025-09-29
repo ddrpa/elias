@@ -11,17 +11,14 @@ import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnSpecMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.TableNotExistMismatch;
 import cc.ddrpa.dorian.elias.generator.MySQL57Generator;
 import cc.ddrpa.dorian.elias.generator.SQLGenerator;
-import java.io.IOException;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
+
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class SchemaChecker {
 
@@ -29,8 +26,8 @@ public class SchemaChecker {
     private static final Logger logger = LoggerFactory.getLogger(SchemaChecker.class);
     private final JdbcTemplate jdbcTemplate;
     private final String schema;
-    private boolean autoFix = false;
     private final List<TableSpec> tableSpecList = new ArrayList<>();
+    private boolean autoFix = false;
 
     public SchemaChecker(JdbcTemplate jdbcTemplate) throws SQLException {
         this.jdbcTemplate = jdbcTemplate;
@@ -63,43 +60,45 @@ public class SchemaChecker {
                 if (autoFix) {
                     autoFixCreateTable(mismatch.getExpectedTableSpec().getName(), createTableSql);
                 }
+                // 因为表不存在，显然就不会有什么列定义不匹配的问题了，跳过后续处理
                 continue;
             }
             for (ISpecMismatch mismatch : mismatches) {
                 if (mismatch instanceof ColumnNotExistMismatch columnNotExistMismatch) {
                     // 缺列，创建列
                     String addColumnSql = generator.addColumn(
-                        columnNotExistMismatch.getTableName(),
-                        columnNotExistMismatch.getColumnSpec());
+                            columnNotExistMismatch.getTableName(),
+                            columnNotExistMismatch.getColumnSpec());
                     errorAndRecommend(mismatch.errorMessage(), addColumnSql);
                     if (autoFix) {
                         autoFixAddColumn(
-                            columnNotExistMismatch.getTableName(),
-                            columnNotExistMismatch.getColumnSpec().getName(),
-                            addColumnSql);
+                                columnNotExistMismatch.getTableName(),
+                                columnNotExistMismatch.getColumnSpec().getName(),
+                                addColumnSql);
                     }
                 } else if (mismatch instanceof ColumnSpecMismatch columnSpecMismatch) {
                     // 列的属性不匹配
                     ColumnModifySpec columnModifySpecResult = ColumnModifySpecBuilder.build(
-                        columnSpecMismatch);
+                            columnSpecMismatch);
                     String modifyColumnSql = generator.modifyColumn(
-                        columnSpecMismatch.getTableName(),
-                        columnSpecMismatch.getColumnName(),
-                        columnModifySpecResult);
+                            columnSpecMismatch.getTableName(),
+                            columnSpecMismatch.getColumnName(),
+                            columnModifySpecResult);
+                    // TODO is autofix enabled and autoFix is processable?
                     if (columnModifySpecResult.isAutoFixEnabled()) {
                         errorAndRecommend(mismatch.errorMessage(), modifyColumnSql);
                         if (autoFix) {
                             autoFixModifyColumn(
-                                columnSpecMismatch.getTableName(),
-                                columnSpecMismatch.getColumnName(),
-                                modifyColumnSql);
+                                    columnSpecMismatch.getTableName(),
+                                    columnSpecMismatch.getColumnName(),
+                                    modifyColumnSql);
                         }
                     } else {
                         logger.warn(
-                            "{}\nAuto-fix is not recommended due to:\n{}\nEnsure all values fit within the new constraints and try:\n{}",
-                            mismatch.errorMessage(),
-                            String.join("\n", columnModifySpecResult.getWarnings()),
-                            modifyColumnSql);
+                                "{}\nAuto-fix is not recommended due to:\n{}\nEnsure all values fit within the new constraints and try:\n{}",
+                                mismatch.errorMessage(),
+                                String.join("\n", columnModifySpecResult.getWarnings()),
+                                modifyColumnSql);
                     }
                 }
             }
@@ -110,7 +109,7 @@ public class SchemaChecker {
     private List<ISpecMismatch> tableCheck(TableSpec tableSpec) {
         // 对指定表，获取数据库中的元数据
         List<Map<String, Object>> rawColumnDetails = jdbcTemplate.queryForList(FETCH_METADATA_SQL,
-            this.schema, tableSpec.getName());
+                this.schema, tableSpec.getName());
         if (rawColumnDetails.isEmpty()) {
             // 数据库中不存在这个表
             return List.of(new TableNotExistMismatch(tableSpec));
@@ -118,8 +117,8 @@ public class SchemaChecker {
         List<ISpecMismatch> mismatches = new ArrayList<>();
         // 将表转换为 Map<ColumnName, ColumnProperties>
         Map<String, ColumnProperties> sqlColumnMap = rawColumnDetails.stream()
-            .map(ColumnProperties::new)
-            .collect(Collectors.toMap(ColumnProperties::getName, column -> column));
+                .map(ColumnProperties::new)
+                .collect(Collectors.toMap(ColumnProperties::getName, column -> column));
         // 遍历实体类的所有属性，检查类型等定义
         for (ColumnSpec columnSpec : tableSpec.getColumns()) {
             if (!sqlColumnMap.containsKey(columnSpec.getName())) {
@@ -131,8 +130,8 @@ public class SchemaChecker {
             ColumnProperties columnProperties = sqlColumnMap.get(columnSpec.getName());
             Optional<ColumnSpecMismatch> mismatch = columnProperties.validate(columnSpec);
             mismatch.ifPresent(columnSpecMismatch -> mismatches.add(columnSpecMismatch
-                .setTableName(tableSpec.getName())
-                .setColumnName(columnSpec.getName())));
+                    .setTableName(tableSpec.getName())
+                    .setColumnName(columnSpec.getName())));
         }
         // FEAT_NEEDED 检查索引设置
         return mismatches;
@@ -155,7 +154,7 @@ public class SchemaChecker {
     private void autoFixModifyColumn(String tableName, String columnName, String sql) {
         executeMultiSQL(sql);
         logger.warn("Applying auto-fix…… Column `{}` modified in table `{}`.", tableName,
-            columnName);
+                columnName);
     }
 
     private void executeMultiSQL(String sql) {

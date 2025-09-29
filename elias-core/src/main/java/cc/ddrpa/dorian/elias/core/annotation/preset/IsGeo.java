@@ -1,6 +1,7 @@
 package cc.ddrpa.dorian.elias.core.annotation.preset;
 
 import cc.ddrpa.dorian.elias.core.annotation.enums.SpatialDataType;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

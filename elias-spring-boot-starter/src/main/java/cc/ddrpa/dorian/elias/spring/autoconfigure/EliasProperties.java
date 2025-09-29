@@ -1,8 +1,9 @@
 package cc.ddrpa.dorian.elias.spring.autoconfigure;
 
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
 import java.util.ArrayList;
 import java.util.List;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "elias.validate")
 public class EliasProperties {
@@ -40,7 +41,7 @@ public class EliasProperties {
     }
 
     public EliasProperties setScan(
-        ScanProperties scan) {
+            ScanProperties scan) {
         this.scan = scan;
         return this;
     }
@@ -88,7 +89,7 @@ public class EliasProperties {
         }
 
         public ScanProperties setAcceptMybatisPlusTableNameAnnotation(
-            Boolean acceptMybatisPlusTableNameAnnotation) {
+                Boolean acceptMybatisPlusTableNameAnnotation) {
             this.acceptMybatisPlusTableNameAnnotation = acceptMybatisPlusTableNameAnnotation;
             return this;
         }

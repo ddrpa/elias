@@ -52,8 +52,12 @@ public class MySQL57Generator implements SQLGenerator {
             alter table `{{ table }}` add column `{{ c.name }}` {{ c.columnType }}{% if c.nullable %} null{% else %} not null{% endif %}{% if c.defaultValue %} default '{{ c.defaultValue }}'{% endif %}{% if c.autoIncrement %} auto_increment{% endif %}{% if c.primaryKey %}
                 primary key{% endif %};
             """;
+    /**
+     * MySQL 5.7 MODIFY COLUMN 需要提供列的完整定义
+     * 即使只修改某个属性，也需要重新声明所有属性
+     */
     private static final String MODIFY_COLUMN_TEMPLATE = """
-            alter table `{{ table }}` modify column `{{ column }}`{% if cm.alterColumnType %} {{ cm.newColumnType }}{% endif %}{% if cm.alterNullable %}{% if cm.newNullable %} null{% else %} not null{% endif %}{% endif %}{% if cm.alterDefaultValue %}{% if cm.newDefaultValue %} default '{{ cm.newDefaultValue }}'{% else %} null{% endif %}{% endif %};
+            alter table `{{ table }}` modify column `{{ column }}` {{ cm.columnType }}{% if cm.nullable %} null{% else %} not null{% endif %}{% if cm.defaultValue is not null %} default '{{ cm.defaultValue }}'{% endif %};
             """;
 
     private final PebbleTemplate createTableTemplate;

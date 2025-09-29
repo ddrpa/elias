@@ -1,6 +1,7 @@
 package cc.ddrpa.dorian.elias.playground;
 
 import com.baomidou.mybatisplus.annotation.IEnum;
+
 import java.util.stream.Stream;
 
 public enum AccountStatus implements IEnum<Integer> {
@@ -14,15 +15,15 @@ public enum AccountStatus implements IEnum<Integer> {
         this.code = code;
     }
 
-    public int getCode() {
-        return code;
-    }
-
     public static AccountStatus of(int code) {
         return Stream.of(AccountStatus.values())
-            .filter(p -> p.getCode() == code)
-            .findFirst()
-            .orElseThrow(IllegalArgumentException::new);
+                .filter(p -> p.getCode() == code)
+                .findFirst()
+                .orElseThrow(IllegalArgumentException::new);
+    }
+
+    public int getCode() {
+        return code;
     }
 
     @Override

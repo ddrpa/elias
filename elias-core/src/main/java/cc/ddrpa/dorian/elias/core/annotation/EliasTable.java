@@ -54,7 +54,7 @@ public @interface EliasTable {
      */
     @Target({})
     @Retention(RetentionPolicy.RUNTIME)
-    public static @interface Index {
+    @interface Index {
 
         /**
          * The name of the index; defaults to a provider-generated name.

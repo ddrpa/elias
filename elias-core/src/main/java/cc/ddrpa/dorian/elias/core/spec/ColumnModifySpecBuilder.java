@@ -15,46 +15,54 @@ public class ColumnModifySpecBuilder {
      *     <li></li>
      * </ul>
      *
-     * @param mismatch
-     * @return
+     * @param mismatch 列规范不匹配信息
+     * @return 列修改规范
      */
     public static ColumnModifySpec build(ColumnSpecMismatch mismatch) {
         ColumnModifySpec columnModifySpec = new ColumnModifySpec();
+        ColumnSpec expectedSpec = mismatch.getExpectedColumnSpec();
+
+        // 设置完整列信息
+        columnModifySpec.setColumnType(expectedSpec.getColumnType());
+        columnModifySpec.setNullable(expectedSpec.isNullable());
+        columnModifySpec.setDefaultValue(expectedSpec.getDefaultValue());
+
+        // 设置修改标记
         if (mismatch.isColumnTypeMismatch()) {
             columnModifySpec.setAlterColumnType(true);
-            columnModifySpec.setNewColumnType(mismatch.getExpectedColumnType());
             if (mismatch.isDataTypeMismatch()) {
                 // 如果存在类型转换且类型转换不是无损的
                 if (!isLosslessDataTypeMigrate(
-                    mismatch.getActualDataType(),
-                    mismatch.getExpectedDataType())) {
-                    columnModifySpec.warn(
-                        "* Reducing the size of a data type—like converting BIGINT to INT or DATETIME to DATE can cause truncation or loss of precision.");
+                        mismatch.getActualDataType(),
+                        mismatch.getExpectedDataType())) {
+                    // 检查是否允许降低数据类型精度
+                    columnModifySpec.addWarning(
+                            "* Reducing the size of a data type—like converting BIGINT to INT or DATETIME to DATE can cause truncation or loss of precision.");
                 }
             } else if (mismatch.isLengthMismatch()) {
                 // 类型保持不变，但长度不一致
                 if ((mismatch.getExpectedDataType().endsWith("text")
-                    || mismatch.getExpectedDataType().equals("blob")
-                    || mismatch.getExpectedDataType().endsWith("char"))
-                    && (mismatch.getExpectedLength() < mismatch.getActualLength())) {
+                        || mismatch.getExpectedDataType().equals("blob")
+                        || mismatch.getExpectedDataType().endsWith("char"))
+                        && (mismatch.getExpectedLength() < mismatch.getActualLength())) {
                     // 如果是 BLOB/CHAR/TEXT 类型，则新的长度必须大于旧的长度
-                    columnModifySpec.warn(
-                        "* Increasing the length of CHAR, BLOB, or TEXT columns can result in data truncation.");
+                    // 检查是否允许数据范围缩小
+                    columnModifySpec.addWarning(
+                            "* Reducing the length of CHAR, BLOB, or TEXT columns can result in data truncation.");
                 }
             }
         }
         if (mismatch.isNullableMismatch()) {
             columnModifySpec.setAlterNullable(true);
-            columnModifySpec.setNewNullable(mismatch.getExpectedNullable());
             // 将可空字段转换为非空字段可能会失败
             if (mismatch.getActualNullable()) {
-                columnModifySpec.warn(
-                    "* Setting a nullable column to NOT NULL may lead to constraint violations if any records contain null values.");
+                // 检查是否允许 nullable 修改为 not null
+                columnModifySpec.addWarning(
+                        "* Setting a nullable column to NOT NULL may lead to constraint violations if any records contain null values.");
             }
         }
         if (mismatch.isDefaultValueMismatch()) {
             columnModifySpec.setAlterDefaultValue(true);
-            columnModifySpec.setNewDefaultValue(mismatch.getExpectedDefaultValue());
         }
         return columnModifySpec;
     }
@@ -79,10 +87,10 @@ public class ColumnModifySpecBuilder {
         switch (fromDataType) {
             case "tinyint":
                 return toDataType.endsWith("int") || toDataType.equals("mediumint")
-                    || toDataType.equals("int") || toDataType.equals("bigint");
+                        || toDataType.equals("int") || toDataType.equals("bigint");
             case "smallint":
                 return toDataType.equals("mediumint") || toDataType.equals(
-                    "int") || toDataType.equals("bigint");
+                        "int") || toDataType.equals("bigint");
             case "mediumint":
                 return toDataType.equals("int") || toDataType.equals("bigint");
             case "int":
@@ -98,9 +106,6 @@ public class ColumnModifySpecBuilder {
             case "boolean":
                 return toDataType.endsWith("int");
         }
-        if (toDataType.endsWith("text") && !fromDataType.equals("blob")) {
-            return true;
-        }
-        return false;
+        return toDataType.endsWith("text") && !fromDataType.equals("blob");
     }
 }

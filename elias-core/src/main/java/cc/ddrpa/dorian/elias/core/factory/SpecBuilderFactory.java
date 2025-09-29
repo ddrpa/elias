@@ -1,18 +1,19 @@
 package cc.ddrpa.dorian.elias.core.factory;
 
-import static cc.ddrpa.dorian.elias.core.SpecUtils.getColumnName;
-
 import cc.ddrpa.dorian.elias.core.annotation.DefaultValue;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpecBuilder;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
-import java.lang.reflect.Field;
-import java.util.Objects;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.lang.reflect.Field;
+import java.util.Objects;
+
+import static cc.ddrpa.dorian.elias.core.SpecUtils.getColumnName;
 
 public interface SpecBuilderFactory {
 
@@ -50,7 +51,7 @@ public interface SpecBuilderFactory {
             TableId tableId = Objects.requireNonNull(field.getAnnotation(TableId.class));
             // 设置主键时需要指定是否设置 autoIncrement 属性
             builder.setPrimaryKey(
-                IdType.AUTO.equals(tableId.type()) || IdType.NONE.equals(tableId.type()));
+                    IdType.AUTO.equals(tableId.type()) || IdType.NONE.equals(tableId.type()));
             // 如果是主键，则暂时不用看其他配置了
             return builder;
         }
@@ -69,8 +70,8 @@ public interface SpecBuilderFactory {
          */
         try {
             if (field.isAnnotationPresent(javax.validation.constraints.NotNull.class) ||
-                field.isAnnotationPresent(javax.validation.constraints.NotEmpty.class) ||
-                field.isAnnotationPresent(javax.validation.constraints.NotBlank.class)
+                    field.isAnnotationPresent(javax.validation.constraints.NotEmpty.class) ||
+                    field.isAnnotationPresent(javax.validation.constraints.NotBlank.class)
             ) {
                 builder.setNullable(false);
             }
@@ -78,8 +79,8 @@ public interface SpecBuilderFactory {
         }
         try {
             if (field.isAnnotationPresent(jakarta.validation.constraints.NotBlank.class) ||
-                field.isAnnotationPresent(jakarta.validation.constraints.NotNull.class) ||
-                field.isAnnotationPresent(jakarta.validation.constraints.NotEmpty.class)
+                    field.isAnnotationPresent(jakarta.validation.constraints.NotNull.class) ||
+                    field.isAnnotationPresent(jakarta.validation.constraints.NotEmpty.class)
             ) {
                 builder.setNullable(false);
             }
@@ -88,7 +89,7 @@ public interface SpecBuilderFactory {
         // DefaultValue 注解修饰的属性
         if (field.isAnnotationPresent(DefaultValue.class)) {
             DefaultValue defaultValue = Objects.requireNonNull(
-                field.getAnnotation(DefaultValue.class));
+                    field.getAnnotation(DefaultValue.class));
             builder.setDefaultValue(defaultValue.value());
         }
         return builder;

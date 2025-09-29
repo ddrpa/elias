@@ -6,9 +6,9 @@ import java.util.Objects;
 public class ColumnSpec {
 
     private static final List<String> GEOMETRY_TYPES = List.of(
-        "geometry", "point", "linestring", "polygon", "multipoint", "multilinestring",
-        "multipolygon",
-        "geometrycollection"
+            "geometry", "point", "linestring", "polygon", "multipoint", "multilinestring",
+            "multipolygon",
+            "geometrycollection"
     );
 
     /**
@@ -60,6 +60,15 @@ public class ColumnSpec {
 
     public String getDataType() {
         return dataType;
+    }
+
+    public ColumnSpec setDataType(String dataType) {
+        this.characterType = dataType.endsWith("char");
+        this.textType = dataType.endsWith("text");
+        this.blobType = dataType.equals("blob");
+        this.decimalType = dataType.equals("decimal");
+        this.dataType = dataType;
+        return this;
     }
 
     public Long getLength() {
@@ -178,15 +187,6 @@ public class ColumnSpec {
             }
         }
         return this.columnType;
-    }
-
-    public ColumnSpec setDataType(String dataType) {
-        this.characterType = dataType.endsWith("char");
-        this.textType = dataType.endsWith("text");
-        this.blobType = dataType.equals("blob");
-        this.decimalType = dataType.equals("decimal");
-        this.dataType = dataType;
-        return this;
     }
 
     public boolean isGeometry() {

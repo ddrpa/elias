@@ -52,10 +52,10 @@ public class TableSpec {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         TableSpec tableSpec = (TableSpec) o;
-        return Objects.equals(name, tableSpec.name) && 
-               Objects.equals(columns, tableSpec.columns) && 
-               Objects.equals(indexes, tableSpec.indexes) && 
-               Objects.equals(spatialIndexSpecs, tableSpec.spatialIndexSpecs);
+        return Objects.equals(name, tableSpec.name) &&
+                Objects.equals(columns, tableSpec.columns) &&
+                Objects.equals(indexes, tableSpec.indexes) &&
+                Objects.equals(spatialIndexSpecs, tableSpec.spatialIndexSpecs);
     }
 
     @Override

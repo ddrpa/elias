@@ -1,9 +1,10 @@
 package cc.ddrpa.dorian.elias.core.factory;
 
+import cc.ddrpa.dorian.elias.core.ConstantsPool;
 import cc.ddrpa.dorian.elias.core.annotation.types.CharLength;
 import cc.ddrpa.dorian.elias.core.annotation.types.UseText;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpecBuilder;
-import cc.ddrpa.dorian.elias.core.ConstantsPool;
+
 import java.lang.reflect.Field;
 import java.util.Objects;
 
@@ -17,27 +18,35 @@ public class TextSpecBuilderFactory implements SpecBuilderFactory {
         if (field.isAnnotationPresent(CharLength.class)) {
             return true;
         }
+        // 字符串数组
         if (field.getType().isArray()) {
             String simpleFieldType = field.getType().getSimpleName();
             if (simpleFieldType.equalsIgnoreCase("char[]")
-                || simpleFieldType.equalsIgnoreCase("java.lang.Character[]")) {
+                    || simpleFieldType.equalsIgnoreCase("java.lang.Character[]")) {
                 return true;
             }
         }
         return fieldTypeName.equalsIgnoreCase("java.lang.String") ||
-            fieldTypeName.equalsIgnoreCase("java.sql.Clob");
+                fieldTypeName.equalsIgnoreCase("java.sql.Clob");
     }
 
     @Override
     public ColumnSpecBuilder builder(Field field) {
+        return builder(field, false);
+    }
+
+    public ColumnSpecBuilder builder(Field field, boolean isFallback) {
         ColumnSpecBuilder builder = SpecBuilderFactory.super.builder(field);
-        if (field.isAnnotationPresent(UseText.class)) {
+        if (isFallback) {
+            builder.setDataType("varchar")
+                    .setLength(ConstantsPool.VARCHAR_MAX_CHARACTER_LENGTH);
+        } else if (field.isAnnotationPresent(UseText.class)) {
             UseText useTextAnno = Objects.requireNonNull(field.getAnnotation(UseText.class));
             if (useTextAnno.estimated() <= ConstantsPool.VARCHAR_MAX_CHARACTER_LENGTH) {
                 builder.setDataType("varchar")
-                    .setLength(useTextAnno.estimated() > 0L
-                        ? useTextAnno.estimated()
-                        : ConstantsPool.VARCHAR_MAX_CHARACTER_LENGTH);
+                        .setLength(useTextAnno.estimated() > 0L
+                                ? useTextAnno.estimated()
+                                : ConstantsPool.VARCHAR_MAX_CHARACTER_LENGTH);
             } else if (useTextAnno.estimated() <= ConstantsPool.TEXT_MAX_CHARACTER_LENGTH) {
                 builder.setDataType("text");
             } else if (useTextAnno.estimated() < ConstantsPool.MEDIUMTEXT_MAX_CHARACTER_LENGTH) {
@@ -47,7 +56,7 @@ public class TextSpecBuilderFactory implements SpecBuilderFactory {
             }
         } else if (field.isAnnotationPresent(CharLength.class)) {
             CharLength charLengthAnno = Objects.requireNonNull(
-                field.getAnnotation(CharLength.class));
+                    field.getAnnotation(CharLength.class));
             long estimatedLength = charLengthAnno.length() > 0L ? charLengthAnno.length() : 255L;
             if (estimatedLength > ConstantsPool.VARCHAR_MAX_CHARACTER_LENGTH) {
                 builder.setDataType("text");
@@ -59,7 +68,7 @@ public class TextSpecBuilderFactory implements SpecBuilderFactory {
         } else if (field.getType().isArray()) {
             String simpleFieldType = field.getType().getSimpleName();
             if (simpleFieldType.equalsIgnoreCase("char[]")
-                || simpleFieldType.equalsIgnoreCase("java.lang.Character[]")) {
+                    || simpleFieldType.equalsIgnoreCase("java.lang.Character[]")) {
                 builder.setDataType("text");
             }
         } else if (field.getType().getName().equalsIgnoreCase("java.sql.Clob")) {
@@ -69,5 +78,4 @@ public class TextSpecBuilderFactory implements SpecBuilderFactory {
         }
         return builder;
     }
-
 }
