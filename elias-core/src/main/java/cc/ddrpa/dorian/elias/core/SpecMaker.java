@@ -36,6 +36,7 @@ public class SpecMaker {
             new FloatSpecBuilderFactory(),
             new BooleanSpecBuilderFactory(),
             new BigDecimalSpecBuilderFactory(),
+            new InetAddressSpecBuilderFactory(),
             new BinarySpecBuilderFactory(),
             new BlobSpecBuilderFactory(),
             new CharSpecBuilderFactory(),
