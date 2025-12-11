@@ -189,15 +189,13 @@ create table `tbl_maintenance_plan` (
 
 ## 语义化注解
 
-Elias 提供了一组语义化注解（Preset Annotations），用于声明字段的语义类型，自动映射到合适的 MySQL 数据类型和存储格式。这些注解位于 `cc.ddrpa.dorian.elias.core.annotation.preset` 包下。
+Elias 提供了一组语义化注解用于将声明字段自动映射到合适的 MySQL 数据类型和存储格式。这些注解位于 `cc.ddrpa.dorian.elias.core.annotation.preset` 包下。
 
 ### @IsHash - 哈希值存储
 
 用于声明字段存储哈希值，支持多种哈希算法，自动映射为 `BINARY` 类型并设置合适的长度。
 
 ```java
-import cc.ddrpa.dorian.elias.core.annotation.preset.IsHash;
-
 public class FileRecord {
     // 默认使用 xxHash64，映射为 BINARY(8)
     @IsHash
@@ -232,10 +230,7 @@ public class FileRecord {
 用于声明字段存储 UUID，以二进制格式存储（128 位），映射为 `BINARY(16)`，相比字符串存储节省空间。
 
 ```java
-import cc.ddrpa.dorian.elias.core.annotation.preset.IsUUID;
-
 public class Entity {
-    // 映射为 BINARY(16)
     @IsUUID
     private byte[] entityId;
 }
@@ -246,10 +241,7 @@ public class Entity {
 用于声明字段存储 UUID，以字符串格式存储，映射为 `CHAR(36)`。
 
 ```java
-import cc.ddrpa.dorian.elias.core.annotation.preset.IsUUIDAsStr;
-
 public class Entity {
-    // 映射为 CHAR(36)
     @IsUUIDAsStr
     private String entityId;
 }
@@ -260,8 +252,6 @@ public class Entity {
 用于声明字段存储 JSON 数据，映射为 MySQL 5.7.8+ 支持的 `JSON` 类型。
 
 ```java
-import cc.ddrpa.dorian.elias.core.annotation.preset.IsJSON;
-
 public class Configuration {
     // 空值默认为 JSON 对象 {}
     @IsJSON(emptyAs = IsJSON.EmptyType.OBJECT)
@@ -278,9 +268,6 @@ public class Configuration {
 用于声明字段存储地理空间数据，映射为 MySQL 5.7.5+ 支持的空间数据类型。
 
 ```java
-import cc.ddrpa.dorian.elias.core.annotation.preset.IsGeo;
-import cc.ddrpa.dorian.elias.core.annotation.enums.SpatialDataType;
-
 public class Location {
     // 默认使用 GEOMETRY 类型，WGS84 坐标系（SRID 4326）
     @IsGeo
