@@ -24,7 +24,7 @@ Java POJOs 和相关的 DAO 层对象。可能是受了 JPA 影响，偏好「�
 - Elias 设计为配合 Mybatis-plus 使用，缺失这项依赖也许会产生一些问题；
 
 Elias 目前的版本为 `2.0.0`，你也可以通过 Maven SNAPSHOT 仓库访问 SNAPSHOT 版本，目前为
-`2.5.0-SNAPSHOT`，对 JDK 11 的支持停留在 `2.0.0` 和 `2.1.0-SNAPSHOT` 版本。
+`2.5.2-SNAPSHOT`，对 JDK 11 的支持停留在 `2.0.0` 和 `2.1.0-SNAPSHOT` 版本。
 
 ```xml
 <repository>
@@ -45,7 +45,6 @@ Elias 会扫描项目中的实体类，生成对应的 MySQL 建表语句，支�
 在项目中添加如下依赖：
 
 ```xml
-
 <dependency>
   <groupId>cc.ddrpa.dorian.elias</groupId>
   <artifactId>elias-generator</artifactId>
@@ -58,25 +57,16 @@ Elias 会扫描项目中的实体类，生成对应的 MySQL 建表语句，支�
 
 ```java
 new SchemaFactory()
-    .
-
-dropIfExists(true)
-    .
-
-addPackage("cc.ddrpa.dorian")
-    .
-
-useAnnotation(com.baomidou.mybatisplus.annotation.TableName .class)
-    .
-
-export("./target/generateTest.sql");
+    .dropIfExists(true)
+    .addPackage("cc.ddrpa.dorian")
+    .useAnnotation(com.baomidou.mybatisplus.annotation.TableName .class)
+    .export("./target/generateTest.sql");
 ```
 
 在实体类中，你可以使用 `cc.ddrpa.dorian.elias.core.annotation.EliasTable`
 注解来声明表需要建立的索引，也可以使用其他一些注解来声明列的名称和类型。
 
 ```java
-
 @EliasTable(
     enable = true,
     indexes = {
@@ -199,7 +189,129 @@ create table `tbl_maintenance_plan` (
 
 ## 语义化注解
 
-// TODO
+Elias 提供了一组语义化注解（Preset Annotations），用于声明字段的语义类型，自动映射到合适的 MySQL 数据类型和存储格式。这些注解位于 `cc.ddrpa.dorian.elias.core.annotation.preset` 包下。
+
+### @IsHash - 哈希值存储
+
+用于声明字段存储哈希值，支持多种哈希算法，自动映射为 `BINARY` 类型并设置合适的长度。
+
+```java
+import cc.ddrpa.dorian.elias.core.annotation.preset.IsHash;
+
+public class FileRecord {
+    // 默认使用 xxHash64，映射为 BINARY(8)
+    @IsHash
+    private byte[] fileHash;
+    
+    // 使用 SHA-256，映射为 BINARY(32)
+    @IsHash(HashType.SHA256)
+    private byte[] contentHash;
+    
+    // 使用 MD5，映射为 BINARY(16)
+    @IsHash(HashType.MD5)
+    private byte[] checksum;
+}
+```
+
+**支持的哈希算法：**
+
+| 算法 | 长度（字节） | 说明 |
+|------|------------|------|
+| `XX_HASH64` | 8 | 默认，高性能非加密哈希 |
+| `MD5` | 16 | 128 位消息摘要 |
+| `SHA1` | 20 | 160 位安全哈希 |
+| `SHA256` | 32 | 256 位安全哈希 |
+| `SHA384` | 48 | 384 位安全哈希 |
+| `SHA512` | 64 | 512 位安全哈希 |
+| `MURMUR3_128` | 16 | 128 位 MurmurHash3 |
+| `BLAKE2B_256` | 32 | 256 位 BLAKE2b |
+| `BLAKE2B_512` | 64 | 512 位 BLAKE2b |
+
+### @IsUUID - UUID 二进制存储
+
+用于声明字段存储 UUID，以二进制格式存储（128 位），映射为 `BINARY(16)`，相比字符串存储节省空间。
+
+```java
+import cc.ddrpa.dorian.elias.core.annotation.preset.IsUUID;
+
+public class Entity {
+    // 映射为 BINARY(16)
+    @IsUUID
+    private byte[] entityId;
+}
+```
+
+### @IsUUIDAsStr - UUID 字符串存储
+
+用于声明字段存储 UUID，以字符串格式存储，映射为 `CHAR(36)`。
+
+```java
+import cc.ddrpa.dorian.elias.core.annotation.preset.IsUUIDAsStr;
+
+public class Entity {
+    // 映射为 CHAR(36)
+    @IsUUIDAsStr
+    private String entityId;
+}
+```
+
+### @IsJSON - JSON 数据存储
+
+用于声明字段存储 JSON 数据，映射为 MySQL 5.7.8+ 支持的 `JSON` 类型。
+
+```java
+import cc.ddrpa.dorian.elias.core.annotation.preset.IsJSON;
+
+public class Configuration {
+    // 空值默认为 JSON 对象 {}
+    @IsJSON(emptyAs = IsJSON.EmptyType.OBJECT)
+    private String settings;
+    
+    // 空值默认为 JSON 数组 []
+    @IsJSON(emptyAs = IsJSON.EmptyType.ARRAY)
+    private String tags;
+}
+```
+
+### @IsGeo - 地理空间数据存储
+
+用于声明字段存储地理空间数据，映射为 MySQL 5.7.5+ 支持的空间数据类型。
+
+```java
+import cc.ddrpa.dorian.elias.core.annotation.preset.IsGeo;
+import cc.ddrpa.dorian.elias.core.annotation.enums.SpatialDataType;
+
+public class Location {
+    // 默认使用 GEOMETRY 类型，WGS84 坐标系（SRID 4326）
+    @IsGeo
+    private Object position;
+    
+    // 使用 POINT 类型存储点坐标
+    @IsGeo(type = SpatialDataType.POINT, nullable = true)
+    private Object coordinates;
+    
+    // 使用 POLYGON 类型存储多边形区域
+    @IsGeo(type = SpatialDataType.POLYGON, srid = 4326)
+    private Object area;
+}
+```
+
+**支持的空间数据类型：**
+
+- `GEOMETRY` - 通用几何类型（默认）
+- `POINT` - 点
+- `LINESTRING` - 线串
+- `POLYGON` - 多边形
+- `MULTIPOINT` - 多点
+- `MULTILINESTRING` - 多线串
+- `MULTIPOLYGON` - 多多边形
+- `GEOMETRYCOLLECTION` - 几何集合
+
+**参数说明：**
+
+- `type` - 空间数据类型，默认为 `GEOMETRY`
+- `srid` - 空间参考系统标识符，默认为 `4326`（WGS84 坐标系）
+- `nullable` - 是否允许 NULL 值，默认为 `false`
 
 ## Schema 检查与 auto-fix
 
