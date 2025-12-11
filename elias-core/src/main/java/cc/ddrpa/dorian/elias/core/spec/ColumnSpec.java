@@ -41,6 +41,7 @@ public class ColumnSpec {
     private Boolean characterType = false;
     private Boolean textType = false;
     private Boolean blobType = false;
+    private Boolean binaryType = false;
     private Boolean decimalType = false;
     private boolean nullable = true;
     private boolean primaryKey = false;
@@ -66,6 +67,7 @@ public class ColumnSpec {
         this.characterType = dataType.endsWith("char");
         this.textType = dataType.endsWith("text");
         this.blobType = dataType.equals("blob");
+        this.binaryType = dataType.endsWith("binary");
         this.decimalType = dataType.equals("decimal");
         this.dataType = dataType;
         return this;
@@ -119,6 +121,10 @@ public class ColumnSpec {
 
     public Boolean getBlobType() {
         return blobType;
+    }
+
+    public Boolean getBinaryType() {
+        return binaryType;
     }
 
     public Boolean getDecimalType() {

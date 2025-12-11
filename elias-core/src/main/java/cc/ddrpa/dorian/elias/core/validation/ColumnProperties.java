@@ -27,6 +27,8 @@ public class ColumnProperties {
     private final Boolean textType;
     // 是 Blob 类型
     private final Boolean blobType;
+    // 是 Binary 类型
+    private final Boolean binaryType;
     // 数据存储长度
     private final Optional<Long> dataLength;
     // 默认值
@@ -40,6 +42,7 @@ public class ColumnProperties {
         this.characterType = dataType.endsWith("char");
         this.textType = dataType.endsWith("text");
         this.blobType = dataType.equals("blob");
+        this.binaryType = dataType.endsWith("binary");
         if (Objects.nonNull(rawProperties.get("CHARACTER_MAXIMUM_LENGTH"))) {
             this.dataLength = Optional.of(
                     Long.parseLong(rawProperties.get("CHARACTER_MAXIMUM_LENGTH").toString()));
@@ -67,8 +70,8 @@ public class ColumnProperties {
         boolean columnSpecMismatchFlag = false;
         ColumnSpecMismatch columnSpecMismatch = new ColumnSpecMismatch();
         if (dataType.equals(columnSpec.getDataType())) {
-            if (characterType || blobType) {
-                // 如果 DataType 一致，且类型是 Blob 或 Char 类型，才检查长度是否有变化
+            if (characterType || blobType || binaryType) {
+                // 如果 DataType 一致，且类型是 Blob、Char 或 Binary 类型，才检查长度是否有变化
                 // TEXT 类型不设置数据长度，不检查
                 // 数值类型是可视长度，不检查
                 if (!Objects.equals(columnSpec.getLength(), dataLength.orElse(null))) {
