@@ -1,30 +1,42 @@
 # Elias
 
-隆重介绍 Elias
+Elias 是一个 Java 实体类到 MySQL Schema 的映射工具，提供两项核心功能：
 
-可以：
+- **DDL 生成**：将 Java POJOs 转换为 MySQL 建表语句
+- **Schema 校验**：在 Spring Boot 启动时检查数据库结构与实体类定义的一致性，并可选择自动修复
 
-- 把 Java POJOs 类转换成 MySQL Schema DDL
-- 在 Spring Boot 项目启动时检查数据库 schema 是否和 Java POJOs 一致（并自动应用修改）
+## 设计背景
 
-使用 Mybatis-plus 作为 ORM 层的 Java 项目，通常的工作路径是先创建数据库 schema，然后用代码生成器生成
-Java POJOs 和相关的 DAO 层对象。可能是受了 JPA 影响，偏好「充血模型」的缘故，笔者不太喜欢这个工作流程：
+使用 MyBatis-Plus 的项目通常采用「数据库优先」的开发流程：先设计表结构，再用代码生成器生成实体类。这种方式在以下场景中存在局限：
 
-1. 笔者习惯先编写 MVP 证实业务思路是可行的，这个时候持久层往往还在 H2 上，之后会迁移到
-   MySQL，有的时候随着设计的演进，还会迁移到 NoSQL 上；
-2. 开发早期阶段改动最多的是 Java POJOs（和相应的 DTOs、VOs），笔者也会把一些简单的逻辑写在 POJOs
-   中，重新生成代码就会覆盖这些内容；
-3. 笔者的团队只在具有一定规模的项目的 RC+ 分支中使用 Liquibase 控制 schema
-   的变更，团队成员如果合作一个模块，在没有协调好的情况下只有 Git 控制的 Java 代码能够拯救他们；
-4. <del>笔者有时候会忘了应该在 MySQL 中为列设置什么类型；</del>
+1. **快速原型阶段**：开发初期持久层可能运行在 H2 上，后续迁移到 MySQL 或 NoSQL
+2. **频繁迭代**：实体类变更频繁，代码生成器会覆盖手工添加的业务逻辑
+3. **团队协作**：多人并行开发时，Schema 变更难以协调，而 Java 代码可通过 Git 管理
+4. **类型映射**：开发者需要记忆 Java 类型与 MySQL 类型的对应关系
 
-## How-To
+Elias 采用「代码优先」的思路，以 Java 实体类为 Schema 的唯一真实来源（Single Source of Truth）。
 
-- 你需要使用 JDK 17+ 来运行 Elias；
-- Elias 设计为配合 Mybatis-plus 使用，缺失这项依赖也许会产生一些问题；
+## 系统要求
 
-Elias 目前的版本为 `2.0.0`，你也可以通过 Maven SNAPSHOT 仓库访问 SNAPSHOT 版本，目前为
-`2.5.2-SNAPSHOT`，对 JDK 11 的支持停留在 `2.0.0` 和 `2.1.0-SNAPSHOT` 版本。
+- JDK 17+（JDK 11 支持停留在 2.0.0 版本）
+- MySQL 5.7+
+- 可选：MyBatis-Plus 3.x（用于识别 `@TableName`、`@TableId` 等注解）
+
+## 安装
+
+当前稳定版本为 `2.0.0`，开发版本为 `2.5.2-SNAPSHOT`。
+
+### Maven Central
+
+```xml
+<dependency>
+  <groupId>cc.ddrpa.dorian.elias</groupId>
+  <artifactId>elias-generator</artifactId>
+  <version>2.0.0</version>
+</dependency>
+```
+
+### SNAPSHOT 版本
 
 ```xml
 <repository>
@@ -33,16 +45,19 @@ Elias 目前的版本为 `2.0.0`，你也可以通过 Maven SNAPSHOT 仓库访�
 </repository>
 ```
 
-### 使用 Elias 生成数据库建表语句
+## 模块结构
 
-Elias 会扫描项目中的实体类，生成对应的 MySQL 建表语句，支持：
+| 模块 | 说明 |
+|------|------|
+| `elias-core` | 核心库，包含注解定义、类型映射工厂、规格构建器 |
+| `elias-generator` | DDL 生成器，将 TableSpec 渲染为 SQL 语句 |
+| `elias-spring-boot-starter` | Spring Boot 集成，提供启动时 Schema 校验功能 |
 
-- 推断设置列的类型、长度
-- 设置列是否可为空
-- 设置默认值
-- 声明并创建索引（和空间索引）
+## 快速开始
 
-在项目中添加如下依赖：
+### 生成建表语句
+
+添加依赖：
 
 ```xml
 <dependency>
@@ -52,27 +67,13 @@ Elias 会扫描项目中的实体类，生成对应的 MySQL 建表语句，支�
 </dependency>
 ```
 
-使用如下语句，Elias 会查找使用 `cc.ddrpa.dorian.elias.core.annotation.EliasTable` 或
-`com.baomidou.mybatisplus.annotation.TableName` 注解标注的实体类。
-
-```java
-new SchemaFactory()
-    .dropIfExists(true)
-    .addPackage("cc.ddrpa.dorian")
-    .useAnnotation(com.baomidou.mybatisplus.annotation.TableName .class)
-    .export("./target/generateTest.sql");
-```
-
-在实体类中，你可以使用 `cc.ddrpa.dorian.elias.core.annotation.EliasTable`
-注解来声明表需要建立的索引，也可以使用其他一些注解来声明列的名称和类型。
+定义实体类：
 
 ```java
 @EliasTable(
-    enable = true,
     indexes = {
         @Index(columns = "email_address", unique = true),
         @Index(columns = "username"),
-        @Index(columns = "username, email_address", unique = true),
     }
 )
 @TableName("tbl_account")
@@ -80,51 +81,53 @@ public class Account {
 
     @TableId(value = "id", type = IdType.AUTO)
     private Integer id;
+
     @TableField("username")
     @NotNull
     private String name;
+
     @NotBlank
     private String emailAddress;
+
     @TypeOverride(type = "varchar", length = 500)
     private LocalDate createTime;
+
     private AccountStatus accountStatus;
-    private byte[] avatar;
+
     @UseText
     private String biography;
 }
 ```
 
-最终得到这样的 SQL 语句：
+生成 SQL：
 
-```sql
-drop table if exists `tbl_account`;
-create table `tbl_account`
-(
-    `id`             int            not null auto_increment
-        primary key,
-    `username`       varchar(255)   not null,
-    `email_address`  varchar(255)   not null,
-    `create_time`    varchar(500)   null,
-    `account_status` tinyint(4)     null,
-    `avatar`         blob(64000)    null,
-    `biography`      varchar(16383) null
-);
-create unique index idx_unique_email_address on `tbl_account` (email_address);
-create index idx_username on `tbl_account` (username);
-create unique index idx_unique_username_email_address on `tbl_account` (username, email_address);
+```java
+new SchemaFactory()
+    .addPackage("cc.ddrpa.dorian")
+    .useAnnotation(TableName.class)
+    .export("./schema.sql", new MySQL57Generator());
 ```
 
-### 使用 Elias-Spring-Boot-Starter 在项目启动时检查数据库 schema
+输出结果：
 
-- 如果找不到对应实体类的表，输出建表 SQL 语句
-- 如果找不到对应实体类属性的列，输出增加列 SQL 语句
-- 如果实体类中的属性与表中列的属性不能匹配，输出修改 SQL 语句
-- 在满足条件的情况下自动应用修改
+```sql
+create table `tbl_account` (
+  `id` int not null auto_increment primary key,
+  `username` varchar(255) not null,
+  `email_address` varchar(255) not null,
+  `create_time` varchar(500) null,
+  `account_status` smallint null,
+  `biography` varchar(5000) null
+);
+create unique index uk_email_address on `tbl_account` (email_address);
+create index idx_username on `tbl_account` (username);
+```
 
-在项目中添加如下依赖：
+### Spring Boot 集成
+
+添加依赖：
 
 ```xml
-
 <dependency>
   <groupId>cc.ddrpa.dorian.elias</groupId>
   <artifactId>elias-spring-boot-starter</artifactId>
@@ -132,191 +135,355 @@ create unique index idx_unique_username_email_address on `tbl_account` (username
 </dependency>
 ```
 
-在 application.yaml 中添加配置：
+配置 `application.yaml`：
 
 ```yaml
 elias:
   validate:
-    enable: true # 启用检查
+    enable: true
     scan:
-      # 为 com.baomidou.mybatisplus.annotation.TableName 注解标注的类也启用支持
       accept-mybatis-plus-table-name-annotation: true
-      includes: # 在这些路径下寻找 EliasTable 标注的类 
-        - cc.ddrpa.virke
-    stop-on-mismatch: false # 如果 schema 不匹配，是否要停止应用
-    auto-fix: false # 如果 schema 不匹配，是否要自动修复
+      includes:
+        - cc.ddrpa.example.entity
+    stop-on-mismatch: false
+    auto-fix: false
 ```
 
-在 `elias.validate.scan.includes` 中指定的包路径下，Elias 会寻找符合搜索要求的实体类，然后检查数据库
-schema 是否和这些类的定义一致。其他配置保持默认的情况下，Elias 会在 Spring Boot
-项目启动时输出类似这样的日志，可以看到其给出了创建表、创建 / 修改列的 SQL 建议，如果开启了
-`elias.validate.auto-fix`，Elias 会尝试执行其中一部分 SQL。
+启动时 Elias 会检查数据库 Schema 并输出差异报告：
 
-```log
-2024-09-04 17:03:36 [main] INFO  c.d.d.e.s.a.EliasAutoConfiguration - 
- _____ _ _           
-|  ___| (_)          
-| |__ | |_  __ _ ___ 
-|  __|| | |/ _` / __|
-| |___| | | (_| \__ \
-\____/|_|_|\__,_|___/
-              2.0.0
-
-2024-09-04 17:03:36 [main] WARN  c.d.d.elias.spring.SchemaChecker - Expect column `create_user` in table `tbl_account` but not found.
+```
+WARN  SchemaChecker - Expect column `create_user` in table `tbl_account` but not found.
 Recommending fix with:
 alter table `tbl_account` add column `create_user` bigint(20) null;
 
-2024-09-04 17:03:36 [main] WARN  c.d.d.elias.spring.SchemaChecker - Column `quantity` in table `tbl_equipment` has specification mismatch:
+WARN  SchemaChecker - Column `quantity` in table `tbl_equipment` has specification mismatch:
 * Column type not match: expected 'int', actual 'varchar(255)'
 * Default value not match: expected '0', actual <null>
 Auto-fix is not recommended due to:
-* Reducing the size of a data type—like converting BIGINT to INT or DATETIME to DATE can cause truncation or loss of precision.
+* Reducing the size of a data type can cause truncation or loss of precision.
 Ensure all values fit within the new constraints and try:
 alter table `tbl_equipment` modify column `quantity` int default '0';
-
-2024-09-04 17:03:36 [main] WARN  c.d.d.elias.spring.SchemaChecker - Expect table `tbl_maintenance_plan` but not found.
-Recommending fix with:
-create table `tbl_maintenance_plan` (
-  `id` bigint(20) not null
-      primary key,
-  `device` varchar(255) null,
-);
 ```
 
-## Java POJOs 属性与数据库元素的转换规则
+## 类型映射规则
 
-参见 `cc.ddrpa.dorian.elias.core.factory` 下的 `SchemaFactory` 实现类。
+Elias 通过一组 `SpecBuilderFactory` 实现类型推断，按优先级顺序匹配：
 
-## 语义化注解
+| 优先级 | Factory | 匹配条件 | 映射结果 |
+|--------|---------|----------|----------|
+| 1 | `TypeOverrideSpecBuilderFactory` | 存在 `@TypeOverride` 注解 | 使用注解指定的类型 |
+| 2 | `TextSpecBuilderFactory` | `String`、`@UseText`、`@CharLength` | `varchar` / `text` / `mediumtext` |
+| 3 | `IntegerSpecBuilderFactory` | `int`、`long`、`short`、`byte` 及包装类 | `int` / `bigint` / `smallint` |
+| 4 | `DateTimeSpecBuilderFactory` | `LocalDate`、`LocalDateTime`、`Instant` 等 | `date` / `datetime` / `time` |
+| 5 | `EnumSpecBuilderFactory` | 枚举类型 | `smallint` |
+| 6 | `FloatSpecBuilderFactory` | `float`、`double` 及包装类 | `float` / `double` |
+| 7 | `BooleanSpecBuilderFactory` | `boolean`、`Boolean` | `tinyint(1)` |
+| 8 | `BigDecimalSpecBuilderFactory` | `BigDecimal`、`@Decimal` | `decimal(p, s)` |
+| 9 | `InetAddressSpecBuilderFactory` | `InetAddress` | `varbinary` |
+| 10 | `BinarySpecBuilderFactory` | `@IsHash`、`@IsUUID` | `binary(n)` |
+| 11 | `BlobSpecBuilderFactory` | `byte[]`、`Blob` | `blob` |
+| 12 | `CharSpecBuilderFactory` | `char`、`Character` | `char(1)` |
+| 13 | `GeometrySpecBuilderFactory` | `@IsGeo`、Geometry 类型 | `geometry` / `point` 等 |
 
-Elias 提供了一组语义化注解用于将声明字段自动映射到合适的 MySQL 数据类型和存储格式。这些注解位于 `cc.ddrpa.dorian.elias.core.annotation.preset` 包下。
+若无匹配，回退到 `varchar(5000)`。
 
-### @IsHash - 哈希值存储
+### 整数类型映射
 
-用于声明字段存储哈希值，支持多种哈希算法，自动映射为 `BINARY` 类型并设置合适的长度。
+| Java 类型 | MySQL 类型 |
+|-----------|------------|
+| `byte` / `Byte` / `short` / `Short` | `smallint` |
+| `int` / `Integer` | `int` |
+| `long` / `Long` / `BigInteger` | `bigint(20)` |
+
+### 日期时间类型映射
+
+| Java 类型 | MySQL 类型 |
+|-----------|------------|
+| `LocalDate` / `java.sql.Date` | `date` |
+| `LocalTime` / `java.sql.Time` | `time` |
+| `LocalDateTime` / `Instant` / `ZonedDateTime` / `Timestamp` | `datetime` |
+
+### 字符串类型映射
+
+| 条件 | MySQL 类型 |
+|------|------------|
+| 默认 | `varchar(255)` |
+| `@CharLength(length = n)` | `varchar(n)` |
+| `@CharLength(length = n, fixed = true)` | `char(n)` |
+| `@UseText` | 根据 `estimated` 值选择 `varchar` / `text` / `mediumtext` / `longtext` |
+
+## 注解参考
+
+### 表级注解
+
+#### @EliasTable
+
+标记实体类参与 Schema 生成和校验。
+
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `enable` | `boolean` | `true` | 是否启用 |
+| `tablePrefix` | `String` | `""` | 表名前缀 |
+| `indexes` | `Index[]` | `{}` | 索引定义 |
+| `spatialIndexes` | `Index[]` | `{}` | 空间索引定义 |
+| `autoSpatialIndexForGeometry` | `boolean` | `true` | 自动为非空几何列创建空间索引 |
+
+#### @EliasTable.Index
+
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `name` | `String` | 自动生成 | 索引名称 |
+| `columns` | `String` | 必填 | 列名列表，逗号分隔，支持 `ASC` / `DESC` |
+| `unique` | `boolean` | `false` | 是否为唯一索引 |
+
+### 列级注解
+
+#### @TypeOverride
+
+覆盖默认类型推断，优先级最高。
 
 ```java
-public class FileRecord {
-    // 默认使用 xxHash64，映射为 BINARY(8)
-    @IsHash
-    private byte[] fileHash;
-    
-    // 使用 SHA-256，映射为 BINARY(32)
-    @IsHash(HashType.SHA256)
-    private byte[] contentHash;
-    
-    // 使用 MD5，映射为 BINARY(16)
-    @IsHash(HashType.MD5)
-    private byte[] checksum;
-}
+@TypeOverride(type = "varchar", length = 500)
+private String description;
 ```
 
-**支持的哈希算法：**
+#### @DefaultValue
 
-| 算法 | 长度（字节） | 说明 |
-|------|------------|------|
-| `XX_HASH64` | 8 | 默认，高性能非加密哈希 |
-| `MD5` | 16 | 128 位消息摘要 |
-| `SHA1` | 20 | 160 位安全哈希 |
-| `SHA256` | 32 | 256 位安全哈希 |
-| `SHA384` | 48 | 384 位安全哈希 |
-| `SHA512` | 64 | 512 位安全哈希 |
-| `MURMUR3_128` | 16 | 128 位 MurmurHash3 |
-| `BLAKE2B_256` | 32 | 256 位 BLAKE2b |
-| `BLAKE2B_512` | 64 | 512 位 BLAKE2b |
-
-### @IsUUID - UUID 二进制存储
-
-用于声明字段存储 UUID，以二进制格式存储（128 位），映射为 `BINARY(16)`，相比字符串存储节省空间。
+设置列的默认值。
 
 ```java
-public class Entity {
-    @IsUUID
-    private byte[] entityId;
-}
+@DefaultValue("0")
+private Integer status;
 ```
 
-### @IsUUIDAsStr - UUID 字符串存储
+#### @EliasIgnore
 
-用于声明字段存储 UUID，以字符串格式存储，映射为 `CHAR(36)`。
+忽略该字段，不生成对应列。
+
+#### @UseText
+
+将字符串映射为 TEXT 系列类型。
 
 ```java
-public class Entity {
-    @IsUUIDAsStr
-    private String entityId;
-}
+@UseText(estimated = 100000)  // 根据预估长度选择 text/mediumtext/longtext
+private String content;
 ```
 
-### @IsJSON - JSON 数据存储
+#### @CharLength
 
-用于声明字段存储 JSON 数据，映射为 MySQL 5.7.8+ 支持的 `JSON` 类型。
+指定字符串长度。
 
 ```java
-public class Configuration {
-    // 空值默认为 JSON 对象 {}
-    @IsJSON(emptyAs = IsJSON.EmptyType.OBJECT)
-    private String settings;
-    
-    // 空值默认为 JSON 数组 []
-    @IsJSON(emptyAs = IsJSON.EmptyType.ARRAY)
-    private String tags;
-}
+@CharLength(length = 32, fixed = true)  // char(32)
+private String code;
 ```
 
-### @IsGeo - 地理空间数据存储
+#### @Decimal
 
-用于声明字段存储地理空间数据，映射为 MySQL 5.7.5+ 支持的空间数据类型。
+指定 BigDecimal 的精度和小数位。
 
 ```java
-public class Location {
-    // 默认使用 GEOMETRY 类型，WGS84 坐标系（SRID 4326）
-    @IsGeo
-    private Object position;
-    
-    // 使用 POINT 类型存储点坐标
-    @IsGeo(type = SpatialDataType.POINT, nullable = true)
-    private Object coordinates;
-    
-    // 使用 POLYGON 类型存储多边形区域
-    @IsGeo(type = SpatialDataType.POLYGON, srid = 4326)
-    private Object area;
-}
+@Decimal(precision = 18, scale = 4)
+private BigDecimal amount;
 ```
 
-**支持的空间数据类型：**
+### 语义化注解
 
-- `GEOMETRY` - 通用几何类型（默认）
-- `POINT` - 点
-- `LINESTRING` - 线串
-- `POLYGON` - 多边形
-- `MULTIPOINT` - 多点
-- `MULTILINESTRING` - 多线串
-- `MULTIPOLYGON` - 多多边形
-- `GEOMETRYCOLLECTION` - 几何集合
+位于 `cc.ddrpa.dorian.elias.core.annotation.preset` 包下。
 
-**参数说明：**
+#### @IsHash
 
-- `type` - 空间数据类型，默认为 `GEOMETRY`
-- `srid` - 空间参考系统标识符，默认为 `4326`（WGS84 坐标系）
-- `nullable` - 是否允许 NULL 值，默认为 `false`
+存储哈希值，映射为 `BINARY(n)`。
 
-## Schema 检查与 auto-fix
+```java
+@IsHash(HashType.SHA256)  // BINARY(32)
+private byte[] contentHash;
+```
 
-// TODO
+支持的算法：
 
-## Roadmap
+| 算法 | 长度 |
+|------|------|
+| `XX_HASH64` | 8 |
+| `MD5` | 16 |
+| `SHA1` | 20 |
+| `SHA256` | 32 |
+| `SHA384` | 48 |
+| `SHA512` | 64 |
+| `MURMUR3_128` | 16 |
+| `BLAKE2B_256` | 32 |
+| `BLAKE2B_512` | 64 |
 
-- 更多列的控制选项
-    - [ ] 支持 Jakarta Persistence API 注解
-    - [ ] 支持 com.baomidou.mybatisplus.annotation.TableField 注解中的 JDBC 类型声明
-- [ ] 支持检查索引
-- [ ] 支持多数据源
-- [ ] 支持分表场景
+#### @IsUUID / @IsUUIDAsStr
+
+存储 UUID。
+
+```java
+@IsUUID           // BINARY(16)
+private byte[] id;
+
+@IsUUIDAsStr      // CHAR(36)
+private String id;
+```
+
+#### @IsJSON
+
+存储 JSON 数据，映射为 MySQL `JSON` 类型。
+
+```java
+@IsJSON(emptyAs = IsJSON.EmptyType.OBJECT)  // 空值默认为 {}
+private String settings;
+```
+
+#### @IsGeo
+
+存储地理空间数据。
+
+```java
+@IsGeo(type = SpatialDataType.POINT, srid = 4326)
+private Object location;
+```
+
+支持的空间类型：`GEOMETRY`、`POINT`、`LINESTRING`、`POLYGON`、`MULTIPOINT`、`MULTILINESTRING`、`MULTIPOLYGON`、`GEOMETRYCOLLECTION`
+
+### MyBatis-Plus 注解兼容
+
+Elias 识别以下 MyBatis-Plus 注解：
+
+| 注解 | 作用 |
+|------|------|
+| `@TableName` | 指定表名 |
+| `@TableId` | 标记主键，支持 `IdType.AUTO` 自增 |
+| `@TableField` | 指定列名，`exist = false` 时忽略该字段 |
+| `@TableLogic` | 逻辑删除字段，默认值设为 `0` |
+
+### Jakarta Validation 注解兼容
+
+以下注解会将列设为 `NOT NULL`：
+
+- `@NotNull`
+- `@NotEmpty`
+- `@NotBlank`
+
+## Schema 校验与自动修复
+
+### 校验行为
+
+Elias 在 Spring Boot 启动时执行以下检查：
+
+1. **表不存在**：输出完整的 `CREATE TABLE` 语句
+2. **列不存在**：输出 `ALTER TABLE ... ADD COLUMN` 语句
+3. **列定义不匹配**：比较类型、长度、是否可空、默认值，输出 `ALTER TABLE ... MODIFY COLUMN` 语句
+
+### 自动修复策略
+
+启用 `auto-fix: true` 后，Elias 会自动执行以下修复：
+
+- 创建缺失的表
+- 添加缺失的列
+- 修改列定义（仅限安全操作）
+
+以下情况不会自动修复，需人工确认：
+
+- 缩小数据类型（如 `BIGINT` 改为 `INT`）
+- 缩短字符串长度
+- 从 `NULL` 改为 `NOT NULL`
+
+### 配置项
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `elias.validate.enable` | `boolean` | `false` | 启用 Schema 校验 |
+| `elias.validate.scan.includes` | `List<String>` | `[]` | 扫描的包路径 |
+| `elias.validate.scan.accept-mybatis-plus-table-name-annotation` | `boolean` | `true` | 识别 `@TableName` 注解 |
+| `elias.validate.stop-on-mismatch` | `boolean` | `false` | 发现不匹配时停止应用启动 |
+| `elias.validate.auto-fix` | `boolean` | `false` | 自动执行修复 SQL |
+
+## 技术实现
+
+### 架构概览
+
+```
+Java Entity Class
+       |
+       v
+  SpecMaker.makeTableSpec()
+       |
+       v
+  TableSpec (表规格对象)
+       |
+       +---> MySQL57Generator.createTable() ---> DDL SQL
+       |
+       +---> SchemaChecker.check() ---> 差异报告 / 修复 SQL
+```
+
+### 核心组件
+
+- **SpecMaker**：遍历实体类字段，调用 SpecBuilderFactory 链生成 ColumnSpec
+- **SpecBuilderFactory**：类型映射工厂接口，每种 Java 类型对应一个实现
+- **TableSpec / ColumnSpec**：中间表示，与具体数据库无关
+- **MySQL57Generator**：使用 Pebble 模板引擎渲染 SQL
+- **SchemaChecker**：通过 `INFORMATION_SCHEMA.COLUMNS` 获取数据库元数据并比对
+
+### 扩展点
+
+实现 `SpecBuilderFactory` 接口可添加自定义类型映射：
+
+```java
+public class CustomTypeFactory implements SpecBuilderFactory {
+    @Override
+    public boolean fit(String fieldTypeName, Field field) {
+        return field.isAnnotationPresent(CustomAnnotation.class);
+    }
+
+    @Override
+    public ColumnSpecBuilder builder(Field field) {
+        return SpecBuilderFactory.super.builder(field)
+            .setDataType("custom_type")
+            .setLength(100);
+    }
+}
+```
 
 ## 常见问题
 
-Q: 我的项目中有一些 `org.springframework.beans.factory.InitializingBean` 实现类 / 使用
-`@PostConstruct` 修饰的方法在 Elias 之前访问了数据库，有什么办法可以指定顺序吗？
+### Bean 初始化顺序问题
 
-A: 目前没想到什么好方法。可以试试在这些 Bean 中注入
-`cc.ddrpa.dorian.elias.spring.autoconfigure.EliasAutoConfiguration` 实例，向 Spring Boot 强调先后顺序
+**问题**：`InitializingBean` 或 `@PostConstruct` 方法在 Elias 之前访问数据库。
+
+**解决方案**：在相关 Bean 中注入 `EliasAutoConfiguration`，强制 Spring 先初始化 Elias：
+
+```java
+@Component
+public class MyBean implements InitializingBean {
+    @Autowired
+    private EliasAutoConfiguration eliasAutoConfiguration;
+
+    @Override
+    public void afterPropertiesSet() {
+        // 此时 Elias 已完成 Schema 校验
+    }
+}
+```
+
+### H2 兼容模式
+
+生成可在 H2 数据库执行的 SQL：
+
+```java
+new MySQL57Generator()
+    .enableH2Compatibility()
+    .createTable(tableSpec);
+```
+
+## Roadmap
+
+- [ ] 支持 Jakarta Persistence API 注解（`@Column`、`@Table` 等）
+- [ ] 支持 `@TableField` 中的 JDBC 类型声明
+- [ ] 索引定义校验
+- [ ] 多数据源支持
+- [ ] 分表场景支持
+
+## 许可证
+
+Apache License 2.0
