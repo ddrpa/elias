@@ -6,7 +6,7 @@
   <groupId>cc.ddrpa.dorian.elias</groupId>
   <artifactId>elias-pom</artifactId>
   <name>${project.groupId}:${project.artifactId}</name>
-  <version>2.5.2-SNAPSHOT</version>
+  <version>2.5.2</version>
   <packaging>pom</packaging>
 
   <licenses>

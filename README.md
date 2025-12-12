@@ -14,7 +14,7 @@ Elias 是一个 Java 实体类到 MySQL Schema 的映射工具，提供两项核
 3. **团队协作**：多人并行开发时，Schema 变更难以协调，而 Java 代码可通过 Git 管理
 4. **类型映射**：开发者需要记忆 Java 类型与 MySQL 类型的对应关系
 
-Elias 采用「代码优先」的思路，以 Java 实体类为 Schema 的唯一真实来源（Single Source of Truth）。
+Elias 采用「代码优先」的思路，以 Java 实体类为 Schema 的唯一真实来源。
 
 ## 系统要求
 
@@ -24,7 +24,7 @@ Elias 采用「代码优先」的思路，以 Java 实体类为 Schema 的唯一
 
 ## 安装
 
-当前稳定版本为 `2.0.0`，开发版本为 `2.5.2-SNAPSHOT`。
+当前稳定版本为 `2.5.2`。
 
 ### Maven Central
 
@@ -32,7 +32,7 @@ Elias 采用「代码优先」的思路，以 Java 实体类为 Schema 的唯一
 <dependency>
   <groupId>cc.ddrpa.dorian.elias</groupId>
   <artifactId>elias-generator</artifactId>
-  <version>2.0.0</version>
+  <version>2.5.2</version>
 </dependency>
 ```
 
@@ -244,6 +244,10 @@ Elias 通过一组 `SpecBuilderFactory` 实现类型推断，按优先级顺序�
 
 ```java
 @TypeOverride(type = "varchar", length = 500)
+private String description;
+
+// or
+@TypeOverride(type = "varchar(500)")
 private String description;
 ```
 

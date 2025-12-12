@@ -36,7 +36,7 @@ public class EliasAutoConfiguration implements InitializingBean {
             |  __|| | |/ _` / __|
             | |___| | | (_| \\__ \\
             \\____/|_|_|\\__,_|___/
-                          2.5.2-SNAPSHOT
+                          2.5.2
             """;
 
     private final EliasProperties properties;
