@@ -29,6 +29,7 @@ public class SpecMaker {
      */
     private static final List<SpecBuilderFactory> factories = List.of(
             new TypeOverrideSpecBuilderFactory(),
+            new EncryptedSpecBuilderFactory(),
             new TextSpecBuilderFactory(),
             new IntegerSpecBuilderFactory(),
             new DateTimeSpecBuilderFactory(),
