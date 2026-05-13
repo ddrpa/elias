@@ -3,11 +3,15 @@ package cc.ddrpa.dorian.elias.spring;
 import cc.ddrpa.dorian.elias.core.spec.ColumnModifySpec;
 import cc.ddrpa.dorian.elias.core.spec.ColumnModifySpecBuilder;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpec;
+import cc.ddrpa.dorian.elias.core.spec.IndexSpec;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
 import cc.ddrpa.dorian.elias.core.validation.ColumnProperties;
+import cc.ddrpa.dorian.elias.core.validation.IndexProperties;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.ISpecMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnNotExistMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnSpecMismatch;
+import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.IndexNotExistMismatch;
+import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.IndexSpecMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.TableNotExistMismatch;
 import cc.ddrpa.dorian.elias.generator.MySQL57Generator;
 import cc.ddrpa.dorian.elias.generator.SQLGenerator;
@@ -23,6 +27,7 @@ import java.util.stream.Collectors;
 public class SchemaChecker {
 
     private static final String FETCH_METADATA_SQL = "select COLUMN_NAME, COLUMN_DEFAULT, IS_NULLABLE, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, COLUMN_TYPE from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA = ? and TABLE_NAME = ?";
+    private static final String FETCH_INDEX_METADATA_SQL = "select INDEX_NAME, NON_UNIQUE, SEQ_IN_INDEX, COLUMN_NAME, COLLATION from INFORMATION_SCHEMA.STATISTICS where TABLE_SCHEMA = ? and TABLE_NAME = ? order by INDEX_NAME, SEQ_IN_INDEX";
     private static final Logger logger = LoggerFactory.getLogger(SchemaChecker.class);
     private final JdbcTemplate jdbcTemplate;
     private final String schema;
@@ -100,6 +105,30 @@ public class SchemaChecker {
                                 String.join("\n", columnModifySpecResult.getWarnings()),
                                 modifyColumnSql);
                     }
+                } else if (mismatch instanceof IndexNotExistMismatch indexNotExistMismatch) {
+                    String createIndexSql = generator.createIndex(
+                            indexNotExistMismatch.getTableName(),
+                            indexNotExistMismatch.getIndexSpec());
+                    errorAndRecommend(mismatch.errorMessage(), createIndexSql);
+                    if (autoFix) {
+                        autoFixCreateIndex(
+                                indexNotExistMismatch.getTableName(),
+                                indexNotExistMismatch.getIndexSpec().getName(),
+                                createIndexSql);
+                    }
+                } else if (mismatch instanceof IndexSpecMismatch indexSpecMismatch) {
+                    String updateIndexSql = generator.dropIndex(
+                            indexSpecMismatch.getTableName(),
+                            indexSpecMismatch.getIndexName()) + "\n" + generator.createIndex(
+                            indexSpecMismatch.getTableName(),
+                            indexSpecMismatch.getExpectedIndexSpec());
+                    errorAndRecommend(mismatch.errorMessage(), updateIndexSql);
+                    if (autoFix) {
+                        autoFixUpdateIndex(
+                                indexSpecMismatch.getTableName(),
+                                indexSpecMismatch.getIndexName(),
+                                updateIndexSql);
+                    }
                 }
             }
         }
@@ -133,7 +162,19 @@ public class SchemaChecker {
                     .setTableName(tableSpec.getName())
                     .setColumnName(columnSpec.getName())));
         }
-        // FEAT_NEEDED 检查索引设置
+        Map<String, IndexProperties> sqlIndexMap = fetchIndexProperties(tableSpec.getName());
+        for (IndexSpec expectedIndex : tableSpec.getIndexes()) {
+            IndexProperties actualIndex = sqlIndexMap.get(expectedIndex.getName());
+            if (actualIndex == null) {
+                mismatches.add(new IndexNotExistMismatch(tableSpec.getName(), expectedIndex));
+                continue;
+            }
+            actualIndex.validate(expectedIndex)
+                    .ifPresent(indexSpecMismatch -> mismatches.add(indexSpecMismatch
+                            .setTableName(tableSpec.getName())
+                            .setIndexName(expectedIndex.getName())
+                            .setExpectedIndexSpec(expectedIndex)));
+        }
         return mismatches;
     }
 
@@ -155,6 +196,47 @@ public class SchemaChecker {
         executeMultiSQL(sql);
         logger.warn("Applying auto-fix…… Column `{}` modified in table `{}`.", tableName,
                 columnName);
+    }
+
+    private void autoFixCreateIndex(String tableName, String indexName, String sql) {
+        executeMultiSQL(sql);
+        logger.warn("Applying auto-fix…… Index `{}` created in table `{}`.", indexName, tableName);
+    }
+
+    private void autoFixUpdateIndex(String tableName, String indexName, String sql) {
+        executeMultiSQL(sql);
+        logger.warn("Applying auto-fix…… Index `{}` recreated in table `{}`.", indexName,
+                tableName);
+    }
+
+    private Map<String, IndexProperties> fetchIndexProperties(String tableName) {
+        List<Map<String, Object>> rawIndexDetails = jdbcTemplate.queryForList(FETCH_INDEX_METADATA_SQL,
+                this.schema, tableName);
+        Map<String, List<Map<String, Object>>> groupedRows = rawIndexDetails.stream()
+                .filter(row -> !"PRIMARY".equals(row.get("INDEX_NAME")))
+                .collect(Collectors.groupingBy(row -> String.valueOf(row.get("INDEX_NAME")),
+                        LinkedHashMap::new, Collectors.toList()));
+        Map<String, IndexProperties> result = new LinkedHashMap<>();
+        for (Map.Entry<String, List<Map<String, Object>>> entry : groupedRows.entrySet()) {
+            List<String> orderedColumns = entry.getValue().stream()
+                    .map(row -> {
+                        String columnName = String.valueOf(row.get("COLUMN_NAME"));
+                        String orderRaw = Objects.toString(row.get("COLLATION"), "A");
+                        String order = "D".equalsIgnoreCase(orderRaw) ? "DESC" : "ASC";
+                        return columnName + " " + order;
+                    })
+                    .toList();
+            boolean unique = toInt(entry.getValue().get(0).get("NON_UNIQUE")) == 0;
+            result.put(entry.getKey(), new IndexProperties(entry.getKey(), unique, orderedColumns));
+        }
+        return result;
+    }
+
+    private int toInt(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        return Integer.parseInt(String.valueOf(value));
     }
 
     private void executeMultiSQL(String sql) {

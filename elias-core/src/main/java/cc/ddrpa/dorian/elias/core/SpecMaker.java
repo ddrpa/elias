@@ -1,7 +1,9 @@
 package cc.ddrpa.dorian.elias.core;
 
 import cc.ddrpa.dorian.elias.core.annotation.EliasTable;
+import cc.ddrpa.dorian.elias.core.annotation.Index;
 import cc.ddrpa.dorian.elias.core.annotation.TypeOverride;
+import cc.ddrpa.dorian.elias.core.annotation.UniqueIndex;
 import cc.ddrpa.dorian.elias.core.factory.*;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpec;
 import cc.ddrpa.dorian.elias.core.spec.IndexSpec;
@@ -78,8 +80,8 @@ public class SpecMaker {
         }
         tableSpec.setColumns(columns);
         EliasTable eliasTableAnnotation = clazz.getAnnotation(EliasTable.class);
-        if (eliasTableAnnotation != null && eliasTableAnnotation.indexes().length > 0) {
-            List<IndexSpec> indexSpecs = createIndexSpecs(eliasTableAnnotation, columns);
+        if (eliasTableAnnotation != null) {
+            List<IndexSpec> indexSpecs = createIndexSpecs(eliasTableAnnotation, columns, fields);
             tableSpec.setIndexes(indexSpecs);
             List<SpatialIndexSpec> spatialIndexSpecs = createSpatialIndexSpecs(eliasTableAnnotation,
                     columns);
@@ -96,7 +98,8 @@ public class SpecMaker {
      * @return
      */
     protected static List<IndexSpec> createIndexSpecs(EliasTable eliasTableAnno,
-                                                      List<ColumnSpec> columnSpecs) {
+                                                      List<ColumnSpec> columnSpecs,
+                                                      Set<Field> fields) {
         Set<String> existedColumnNameSet = columnSpecs.stream()
                 .map(ColumnSpec::getName)
                 .collect(Collectors.toSet());
@@ -104,53 +107,25 @@ public class SpecMaker {
                 .filter(columnSpec -> !columnSpec.isNullable())
                 .map(ColumnSpec::getName)
                 .collect(Collectors.toSet());
-        Map<String, IndexSpec> indexSpecMap = Arrays.stream(eliasTableAnno.indexes())
-                .map(indexAnno -> {
-                    String indexName;
-                    String columnList = indexAnno.columns();
-                    if (StringUtils.isBlank(columnList)) {
-                        throw new IllegalStateException(
-                                "Index column list is empty, please specify columns in @EliasTable.indexes");
-                    }
-                    if (StringUtils.isNoneBlank(indexAnno.name())) {
-                        indexName = indexAnno.name();
-                    } else {
-                        List<String> annotatedColumns = Arrays.stream(
-                                        indexAnno.columns().split(","))
-                                .map(columnSpec -> columnSpec.trim().split(" ")[0])
-                                .toList();
-                        if (indexAnno.unique()) {
-                            indexName = "uk_";
-                            // 唯一索引成员必须满足 not_null 条件
-                            if (annotatedColumns.stream()
-                                    .anyMatch(c -> !nonNullColumnNameSet.contains(c))) {
-                                throw new IllegalStateException(
-                                        "Annotated column not found or is nullable");
-                            }
-                        } else {
-                            indexName = "idx_";
-                            if (annotatedColumns.stream()
-                                    .anyMatch(c -> !existedColumnNameSet.contains(c))) {
-                                throw new IllegalStateException("Annotated column not found");
-                            }
-                        }
-                        indexName += String.join("_", annotatedColumns);
-                    }
-                    if (indexName.length() > 64) {
-                        // 索引名称超过 64 个字符截断，可能会导致重名
-                        indexName = indexName.substring(0, 64);
-                    }
-                    return new IndexSpec()
-                            .setName(indexName)
-                            .setUnique(indexAnno.unique())
-                            .setColumns(indexAnno.columns());
-                })
-                .collect(Collectors.toMap(IndexSpec::getName, spec -> spec));
-        if (eliasTableAnno.indexes().length != indexSpecMap.size()) {
-            throw new IllegalStateException(
-                    "Duplicate index names found in EliasTable annotation, some indexes may be ignored.");
+        Map<String, IndexSpec> indexSpecMap = new LinkedHashMap<>();
+        List<IndexSpec> annotatedIndexSpecs = Arrays.stream(eliasTableAnno.indexes())
+                .map(indexAnno -> new IndexSpec()
+                        .setName(indexAnno.name())
+                        .setUnique(indexAnno.unique())
+                        .setColumns(indexAnno.columns()))
+                .toList();
+        for (IndexSpec indexSpec : annotatedIndexSpecs) {
+            putIndexSpec(indexSpecMap, buildAndValidateIndexSpec(indexSpec, existedColumnNameSet,
+                    nonNullColumnNameSet, "@EliasTable.indexes"));
         }
-        return new ArrayList<>(indexSpecMap.values());
+        List<IndexSpec> fieldIndexSpecs = createFieldIndexSpecs(fields);
+        for (IndexSpec fieldIndexSpec : fieldIndexSpecs) {
+            putIndexSpec(indexSpecMap, buildAndValidateIndexSpec(fieldIndexSpec, existedColumnNameSet,
+                    nonNullColumnNameSet, "@Index/@UniqueIndex"));
+        }
+        List<IndexSpec> result = new ArrayList<>(indexSpecMap.values());
+        analyzeRedundantIndexes(result);
+        return result;
     }
 
     /**
@@ -232,5 +207,236 @@ public class SpecMaker {
             return new TextSpecBuilderFactory().builder(field, true).build();
         }
         return factory.get().builder(field).build();
+    }
+
+    private static List<IndexSpec> createFieldIndexSpecs(Set<Field> fields) {
+        List<FieldIndexDefinition> definitions = fields.stream()
+                .flatMap(field -> Arrays.stream(field.getAnnotationsByType(Index.class))
+                        .map(tableIndex -> new FieldIndexDefinition(
+                                SpecUtils.getColumnName(field),
+                                tableIndex.group(),
+                                tableIndex.pos(),
+                                tableIndex.desc() ? "DESC" : "ASC",
+                                tableIndex.name(),
+                                false
+                        )))
+                .toList();
+        List<FieldIndexDefinition> uniqueDefinitions = fields.stream()
+                .flatMap(field -> Arrays.stream(field.getAnnotationsByType(UniqueIndex.class))
+                        .map(uniqueIndex -> new FieldIndexDefinition(
+                                SpecUtils.getColumnName(field),
+                                uniqueIndex.group(),
+                                uniqueIndex.pos(),
+                                uniqueIndex.desc() ? "DESC" : "ASC",
+                                uniqueIndex.name(),
+                                true
+                        )))
+                .toList();
+        definitions = new ArrayList<>(definitions);
+        definitions.addAll(uniqueDefinitions);
+        List<IndexSpec> result = new ArrayList<>();
+        definitions.stream()
+                .filter(def -> StringUtils.isBlank(def.group()))
+                .map(def -> new IndexSpec()
+                        .setName(def.name())
+                        .setUnique(def.unique())
+                        .setColumns(def.columnName() + " " + def.order()))
+                .forEach(result::add);
+
+        Map<String, List<FieldIndexDefinition>> groupDefinitions = definitions.stream()
+                .filter(def -> StringUtils.isNotBlank(def.group()))
+                .collect(Collectors.groupingBy(FieldIndexDefinition::group));
+        for (Map.Entry<String, List<FieldIndexDefinition>> entry : groupDefinitions.entrySet()) {
+            result.add(buildGroupedIndex(entry.getKey(), entry.getValue()));
+        }
+        return result;
+    }
+
+    private static IndexSpec buildGroupedIndex(String groupName,
+                                               List<FieldIndexDefinition> definitions) {
+        if (definitions.isEmpty()) {
+            throw new IllegalStateException("Empty index group found: " + groupName);
+        }
+        validateGroupedDefinitions(groupName, definitions);
+        Set<Integer> seenPositions = new HashSet<>();
+        boolean hasDuplicatePosition = definitions.stream()
+                .map(FieldIndexDefinition::position)
+                .anyMatch(position -> !seenPositions.add(position));
+        if (hasDuplicatePosition) {
+            logger.warn("Duplicate position in index group {}, resolved by column name order.",
+                    groupName);
+        }
+        List<FieldIndexDefinition> sorted = definitions.stream()
+                .sorted(Comparator.comparingInt(FieldIndexDefinition::position)
+                        .thenComparing(FieldIndexDefinition::columnName))
+                .toList();
+        String columns = sorted.stream()
+                .map(def -> def.columnName() + " " + def.order())
+                .collect(Collectors.joining(", "));
+        boolean unique = sorted.stream().anyMatch(FieldIndexDefinition::unique);
+        String declaredName = sorted.stream()
+                .map(FieldIndexDefinition::name)
+                .filter(StringUtils::isNotBlank)
+                .findFirst()
+                .orElse("");
+        String generatedName = makeIndexName(unique,
+                sorted.stream().map(FieldIndexDefinition::columnName).toList());
+        return new IndexSpec()
+                .setName(StringUtils.defaultIfBlank(declaredName, generatedName))
+                .setUnique(unique)
+                .setColumns(columns);
+    }
+
+    private static void validateGroupedDefinitions(String groupName,
+                                                   List<FieldIndexDefinition> definitions) {
+        Set<Boolean> uniqueSet = definitions.stream()
+                .map(FieldIndexDefinition::unique)
+                .collect(Collectors.toSet());
+        if (uniqueSet.size() > 1) {
+            throw new IllegalStateException(
+                    "Conflicting unique flags in index group: " + groupName);
+        }
+        Set<String> names = definitions.stream()
+                .map(FieldIndexDefinition::name)
+                .filter(StringUtils::isNotBlank)
+                .collect(Collectors.toSet());
+        if (names.size() > 1) {
+            throw new IllegalStateException(
+                    "Conflicting index names in index group: " + groupName);
+        }
+    }
+
+    private static IndexSpec buildAndValidateIndexSpec(IndexSpec sourceSpec,
+                                                       Set<String> existedColumnNameSet,
+                                                       Set<String> nonNullColumnNameSet,
+                                                       String source) {
+        String columnList = sourceSpec.getColumns();
+        if (StringUtils.isBlank(columnList)) {
+            throw new IllegalStateException("Index column list is empty in " + source);
+        }
+        List<String> annotatedColumns = parseColumnNames(columnList);
+        if (annotatedColumns.stream().anyMatch(c -> !existedColumnNameSet.contains(c))) {
+            throw new IllegalStateException("Annotated column not found in " + source + ": "
+                    + String.join(", ", annotatedColumns));
+        }
+        if (sourceSpec.isUnique()) {
+            List<String> nullableColumns = annotatedColumns.stream()
+                    .filter(c -> !nonNullColumnNameSet.contains(c))
+                    .toList();
+            if (!nullableColumns.isEmpty()) {
+                throw new IllegalStateException("Unique index requires all columns NOT NULL. " +
+                        "Nullable columns: " + String.join(", ", nullableColumns));
+            }
+        }
+        String indexName = StringUtils.isBlank(sourceSpec.getName())
+                ? makeIndexName(sourceSpec.isUnique(), annotatedColumns)
+                : sourceSpec.getName();
+        return new IndexSpec()
+                .setName(limitIndexName(indexName))
+                .setUnique(sourceSpec.isUnique())
+                .setColumns(columnList);
+    }
+
+    private static List<String> parseColumnNames(String columnList) {
+        return Arrays.stream(columnList.split(","))
+                .map(columnSpec -> columnSpec.trim().split("\\s+")[0])
+                .toList();
+    }
+
+    private static String makeIndexName(boolean unique, List<String> annotatedColumns) {
+        return (unique ? "uk_" : "idx_") + String.join("_", annotatedColumns);
+    }
+
+    private static String limitIndexName(String indexName) {
+        if (indexName.length() <= 64) {
+            return indexName;
+        }
+        // 索引名称超过 64 个字符截断，可能会导致重名
+        return indexName.substring(0, 64);
+    }
+
+    private static void putIndexSpec(Map<String, IndexSpec> indexSpecMap, IndexSpec indexSpec) {
+        IndexSpec existed = indexSpecMap.get(indexSpec.getName());
+        if (existed != null && !Objects.equals(existed, indexSpec)) {
+            throw new IllegalStateException("Duplicate index name with different definitions: "
+                    + indexSpec.getName());
+        }
+        indexSpecMap.put(indexSpec.getName(), indexSpec);
+    }
+
+    private static void analyzeRedundantIndexes(List<IndexSpec> indexSpecs) {
+        List<NormalizedIndex> normalizedIndexes = indexSpecs.stream()
+                .map(index -> new NormalizedIndex(
+                        index.getName(),
+                        index.isUnique(),
+                        normalizeIndexColumns(index.getColumns())))
+                .toList();
+        for (int i = 0; i < normalizedIndexes.size(); i++) {
+            for (int j = i + 1; j < normalizedIndexes.size(); j++) {
+                NormalizedIndex left = normalizedIndexes.get(i);
+                NormalizedIndex right = normalizedIndexes.get(j);
+                if (left.unique() == right.unique()
+                        && Objects.equals(left.columnsWithOrder(), right.columnsWithOrder())) {
+                    logger.warn("Duplicate index definitions found: {} and {}", left.name(),
+                            right.name());
+                    continue;
+                }
+                if (left.unique() == right.unique()) {
+                    if (isPrefix(left.columnsWithOrder(), right.columnsWithOrder())) {
+                        logger.warn("Potential redundant prefix index: {} is covered by {}",
+                                left.name(), right.name());
+                    } else if (isPrefix(right.columnsWithOrder(), left.columnsWithOrder())) {
+                        logger.warn("Potential redundant prefix index: {} is covered by {}",
+                                right.name(), left.name());
+                    }
+                }
+                if (Objects.equals(left.columnsWithOrder(), right.columnsWithOrder())
+                        && left.unique() != right.unique()) {
+                    logger.warn("Unique and non-unique indexes share same columns: {} and {}",
+                            left.name(), right.name());
+                }
+                if (isReasonableParallelIndex(left.columnsWithOrder(), right.columnsWithOrder())) {
+                    logger.info("Parallel index pattern detected, please verify necessity: {} and {}",
+                            left.name(), right.name());
+                }
+            }
+        }
+    }
+
+    private static boolean isReasonableParallelIndex(List<String> left, List<String> right) {
+        if (left.size() == 1 && right.size() > 1) {
+            return right.stream().skip(1).anyMatch(column -> column.equals(left.get(0)));
+        }
+        if (right.size() == 1 && left.size() > 1) {
+            return left.stream().skip(1).anyMatch(column -> column.equals(right.get(0)));
+        }
+        return false;
+    }
+
+    private static boolean isPrefix(List<String> prefix, List<String> full) {
+        if (prefix.size() >= full.size()) {
+            return false;
+        }
+        for (int i = 0; i < prefix.size(); i++) {
+            if (!Objects.equals(prefix.get(i), full.get(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static List<String> normalizeIndexColumns(String columns) {
+        return Arrays.stream(columns.split(","))
+                .map(item -> item.trim())
+                .filter(item -> !item.isBlank())
+                .map(item -> item.split("\\s+")[0])
+                .toList();
+    }
+
+    private record FieldIndexDefinition(String columnName, String group, int position, String order,
+                                        String name, boolean unique) {
+    }
+
+    private record NormalizedIndex(String name, boolean unique, List<String> columnsWithOrder) {
     }
 }

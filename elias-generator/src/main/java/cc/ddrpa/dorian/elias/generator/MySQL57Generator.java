@@ -2,6 +2,7 @@ package cc.ddrpa.dorian.elias.generator;
 
 import cc.ddrpa.dorian.elias.core.spec.ColumnModifySpec;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpec;
+import cc.ddrpa.dorian.elias.core.spec.IndexSpec;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
 import io.pebbletemplates.pebble.PebbleEngine;
 import io.pebbletemplates.pebble.loader.StringLoader;
@@ -59,11 +60,27 @@ public class MySQL57Generator implements SQLGenerator {
     private static final String MODIFY_COLUMN_TEMPLATE = """
             alter table `{{ table }}` modify column `{{ column }}` {{ cm.columnType }}{% if cm.nullable %} null{% else %} not null{% endif %}{% if cm.defaultValue is not null %} default '{{ cm.defaultValue }}'{% endif %};
             """;
+    private static final String CREATE_INDEX_TEMPLATE = """
+            create{% if i.unique %} unique{% endif %} index {{ i.name }} on `{{ table }}` ({{ i.columns }});
+            """;
+    private static final String CREATE_H2_INDEX_TEMPLATE = """
+            create{% if i.unique %} unique{% endif %} index {{ i.name }} on {{ table }} ({{ i.columns }});
+            """;
+    private static final String DROP_INDEX_TEMPLATE = """
+            drop index {{ index }} on `{{ table }}`;
+            """;
+    private static final String DROP_H2_INDEX_TEMPLATE = """
+            drop index if exists {{ index }};
+            """;
 
     private final PebbleTemplate createTableTemplate;
     private final PebbleTemplate createH2TableTemplate;
     private final PebbleTemplate addColumnTemplate;
     private final PebbleTemplate modifyColumnTemplate;
+    private final PebbleTemplate createIndexTemplate;
+    private final PebbleTemplate createH2IndexTemplate;
+    private final PebbleTemplate dropIndexTemplate;
+    private final PebbleTemplate dropH2IndexTemplate;
     private boolean dropIfExists = true;
     private boolean h2Compatibility = false;
 
@@ -75,6 +92,10 @@ public class MySQL57Generator implements SQLGenerator {
         this.createH2TableTemplate = engine.getTemplate(CREATE_H2_TABLE_TEMPLATE);
         this.addColumnTemplate = engine.getTemplate(ADD_COLUMN_TEMPLATE);
         this.modifyColumnTemplate = engine.getTemplate(MODIFY_COLUMN_TEMPLATE);
+        this.createIndexTemplate = engine.getTemplate(CREATE_INDEX_TEMPLATE);
+        this.createH2IndexTemplate = engine.getTemplate(CREATE_H2_INDEX_TEMPLATE);
+        this.dropIndexTemplate = engine.getTemplate(DROP_INDEX_TEMPLATE);
+        this.dropH2IndexTemplate = engine.getTemplate(DROP_H2_INDEX_TEMPLATE);
     }
 
     public MySQL57Generator setDropIfExists(boolean dropIfExists) {
@@ -123,6 +144,34 @@ public class MySQL57Generator implements SQLGenerator {
         context.put("cm", columnModifySpec);
         StringWriter writer = new StringWriter();
         modifyColumnTemplate.evaluate(writer, context);
+        return writer.toString();
+    }
+
+    @Override
+    public String createIndex(String tableName, IndexSpec indexSpec) throws IOException {
+        Map<String, Object> context = new HashMap<>();
+        context.put("table", tableName);
+        context.put("i", indexSpec);
+        StringWriter writer = new StringWriter();
+        if (h2Compatibility) {
+            createH2IndexTemplate.evaluate(writer, context);
+        } else {
+            createIndexTemplate.evaluate(writer, context);
+        }
+        return writer.toString();
+    }
+
+    @Override
+    public String dropIndex(String tableName, String indexName) throws IOException {
+        Map<String, Object> context = new HashMap<>();
+        context.put("table", tableName);
+        context.put("index", indexName);
+        StringWriter writer = new StringWriter();
+        if (h2Compatibility) {
+            dropH2IndexTemplate.evaluate(writer, context);
+        } else {
+            dropIndexTemplate.evaluate(writer, context);
+        }
         return writer.toString();
     }
 

@@ -83,10 +83,12 @@ public class Account {
     private Integer id;
 
     @TableField("username")
+    @Index(desc = true)
     @NotNull
     private String name;
 
     @NotBlank
+    @UniqueIndex(name = "uk_email_address")
     private String emailAddress;
 
     @TypeOverride(type = "varchar", length = 500)
@@ -150,6 +152,10 @@ elias:
 ```
 
 启动时 Elias 会检查数据库 Schema 并输出差异报告：
+
+- 已存在且定义一致的索引会自动跳过；
+- 索引已存在但定义变化时，会建议 `drop index + create index`；
+- 当 `elias.validate.auto-fix=true` 时，索引变更会自动重建。
 
 ```
 WARN  SchemaChecker - Expect column `create_user` in table `tbl_account` but not found.
@@ -235,6 +241,39 @@ Elias 通过一组 `SpecBuilderFactory` 实现类型推断，按优先级顺序�
 | `name` | `String` | 自动生成 | 索引名称 |
 | `columns` | `String` | 必填 | 列名列表，逗号分隔，支持 `ASC` / `DESC` |
 | `unique` | `boolean` | `false` | 是否为唯一索引 |
+
+#### @Index
+
+用于字段级声明普通索引，会和 `@EliasTable.indexes` 一起合并。
+
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `name` | `String` | 自动生成 | 索引名称 |
+| `group` | `String` | `""` | 索引分组，非空时参与同组联合索引 |
+| `pos` | `int` | `0` | 同组中的列顺序，越小越靠前 |
+| `desc` | `boolean` | `false` | 是否降序，`false`=ASC, `true`=DESC |
+
+#### @UniqueIndex
+
+用于字段级声明唯一索引，参数与 `@Index` 一致。
+
+注意：
+- `group=""` 时生成独立单列索引，`group!=""` 时按组装联合索引；
+- 同一列可以同时声明独立索引和联合索引（使用重复注解）；
+- 同组内按 `pos ASC` 排序；若 `pos` 相同，按列名字典序排序并输出 `WARN`；
+- 对于复杂联合索引仍可继续使用 `@EliasTable.Index(columns = "a, b")`；
+- 联合唯一索引要求每个成员列都是 `NOT NULL`（字段上使用 `@UniqueIndex`）。
+
+示例：
+
+```java
+@Index(name = "idx_email")
+@UniqueIndex(group = "uk_tenant_email", pos = 2)
+private String email;
+
+@UniqueIndex(group = "uk_tenant_email", pos = 1)
+private Long tenantId;
+```
 
 ### 列级注解
 

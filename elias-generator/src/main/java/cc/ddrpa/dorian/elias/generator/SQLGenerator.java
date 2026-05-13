@@ -2,6 +2,7 @@ package cc.ddrpa.dorian.elias.generator;
 
 import cc.ddrpa.dorian.elias.core.spec.ColumnModifySpec;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpec;
+import cc.ddrpa.dorian.elias.core.spec.IndexSpec;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
 
 import java.io.IOException;
@@ -14,4 +15,8 @@ public interface SQLGenerator {
 
     String modifyColumn(String tableName, String columnName,
                         ColumnModifySpec columnModifySpec) throws IOException;
+
+    String createIndex(String tableName, IndexSpec indexSpec) throws IOException;
+
+    String dropIndex(String tableName, String indexName) throws IOException;
 }
