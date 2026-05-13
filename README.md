@@ -169,6 +169,8 @@ Auto-fix is not recommended due to:
 * Reducing the size of a data type can cause truncation or loss of precision.
 Ensure all values fit within the new constraints and try:
 alter table `tbl_equipment` modify column `quantity` int default '0';
+
+WARN  SchemaChecker - Invalid schema definition in table `tbl_account`: column `order` uses reserved keyword. Identifier conflicts with MySQL reserved keyword.
 ```
 
 ## 类型映射规则
@@ -543,6 +545,17 @@ Elias 在 Spring Boot 启动时执行以下检查：
 1. **表不存在**：输出完整的 `CREATE TABLE` 语句
 2. **列不存在**：输出 `ALTER TABLE ... ADD COLUMN` 语句
 3. **列定义不匹配**：比较类型、长度、是否可空、默认值，输出 `ALTER TABLE ... MODIFY COLUMN` 语句
+4. **定义级风险检查**：在访问数据库元数据前检查实体定义是否存在高风险问题（例如标识符非法、命中 SQL 保留关键字、索引定义非法）
+
+### 阻断级规则
+
+以下问题被归类为“阻断级”：
+
+- 表名/列名/索引名命中 MySQL 保留关键字（例如 `order`、`group`）
+- 标识符不合法（空值、超长、非法字符、包含反引号）
+- 索引定义非法（空列列表、引用不存在列、排序关键字不是 `ASC` / `DESC`、同表重复索引名）
+
+当 `elias.validate.stop-on-mismatch=true` 时，命中阻断级问题会终止应用启动。
 
 ### 自动修复策略
 
@@ -557,6 +570,7 @@ Elias 在 Spring Boot 启动时执行以下检查：
 - 缩小数据类型（如 `BIGINT` 改为 `INT`）
 - 缩短字符串长度
 - 从 `NULL` 改为 `NOT NULL`
+- 阻断级定义风险（关键字冲突、非法标识符、非法索引定义）
 
 ### 配置项
 

@@ -7,11 +7,16 @@ import cc.ddrpa.dorian.elias.core.spec.IndexSpec;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
 import cc.ddrpa.dorian.elias.core.validation.ColumnProperties;
 import cc.ddrpa.dorian.elias.core.validation.IndexProperties;
+import cc.ddrpa.dorian.elias.core.validation.SchemaDefinitionIssue;
+import cc.ddrpa.dorian.elias.core.validation.SchemaDefinitionValidator;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.ISpecMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnNotExistMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnSpecMismatch;
+import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.IllegalIdentifierMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.IndexNotExistMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.IndexSpecMismatch;
+import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.InvalidIndexDefinitionMismatch;
+import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ReservedKeywordMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.TableNotExistMismatch;
 import cc.ddrpa.dorian.elias.generator.MySQL57Generator;
 import cc.ddrpa.dorian.elias.generator.SQLGenerator;
@@ -29,6 +34,7 @@ public class SchemaChecker {
     private static final String FETCH_METADATA_SQL = "select COLUMN_NAME, COLUMN_DEFAULT, IS_NULLABLE, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, COLUMN_TYPE from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA = ? and TABLE_NAME = ?";
     private static final String FETCH_INDEX_METADATA_SQL = "select INDEX_NAME, NON_UNIQUE, SEQ_IN_INDEX, COLUMN_NAME, COLLATION from INFORMATION_SCHEMA.STATISTICS where TABLE_SCHEMA = ? and TABLE_NAME = ? order by INDEX_NAME, SEQ_IN_INDEX";
     private static final Logger logger = LoggerFactory.getLogger(SchemaChecker.class);
+    private static final SchemaDefinitionValidator DEFINITION_VALIDATOR = new SchemaDefinitionValidator();
     private final JdbcTemplate jdbcTemplate;
     private final String schema;
     private final List<TableSpec> tableSpecList = new ArrayList<>();
@@ -53,6 +59,12 @@ public class SchemaChecker {
         SQLGenerator generator = new MySQL57Generator().setDropIfExists(false);
         boolean somethingBadHappened = false;
         for (TableSpec tableSpec : tableSpecList) {
+            List<ISpecMismatch> definitionMismatches = validateDefinition(tableSpec);
+            if (!definitionMismatches.isEmpty()) {
+                somethingBadHappened = true;
+                definitionMismatches.forEach(mismatch -> logger.warn("{}", mismatch.errorMessage()));
+                continue;
+            }
             List<ISpecMismatch> mismatches = tableCheck(tableSpec);
             if (mismatches.isEmpty()) {
                 continue;
@@ -180,6 +192,23 @@ public class SchemaChecker {
 
     private void errorAndRecommend(String errorMessage, String recommendation) {
         logger.warn("{}\nRecommending fix with:\n{}", errorMessage, recommendation);
+    }
+
+    private List<ISpecMismatch> validateDefinition(TableSpec tableSpec) {
+        return DEFINITION_VALIDATOR.validate(tableSpec).stream()
+                .map(issue -> toMismatch(tableSpec.getName(), issue))
+                .toList();
+    }
+
+    private ISpecMismatch toMismatch(String tableName, SchemaDefinitionIssue issue) {
+        return switch (issue.getType()) {
+            case RESERVED_KEYWORD ->
+                    new ReservedKeywordMismatch(tableName, issue.getSubject(), issue.getDetail());
+            case ILLEGAL_IDENTIFIER ->
+                    new IllegalIdentifierMismatch(tableName, issue.getSubject(), issue.getDetail());
+            case INVALID_INDEX_DEFINITION ->
+                    new InvalidIndexDefinitionMismatch(tableName, issue.getSubject(), issue.getDetail());
+        };
     }
 
     private void autoFixCreateTable(String tableName, String sql) {
