@@ -24,6 +24,8 @@ public class ColumnSpecBuilder {
 
     private String comment;
 
+    private String columnTypeOverride;
+
     public ColumnSpecBuilder setName(String name) {
         this.name = name;
         return this;
@@ -31,6 +33,18 @@ public class ColumnSpecBuilder {
 
     public ColumnSpecBuilder setDataType(String dataType) {
         this.dataType = dataType;
+        return this;
+    }
+
+    /**
+     * 直接指定 columnType 字符串（如 {@code bigint(20) unsigned}），覆盖 {@link ColumnSpec} 内部
+     * 通过 dataType + length 自动拼接的结果。
+     * <p>
+     * 仅当原生 MySQL 类型需要额外修饰符（unsigned、zerofill 等）时使用；
+     * dataType 仍需单独设置以便 {@code SchemaChecker} 比对。
+     */
+    public ColumnSpecBuilder setColumnType(String columnType) {
+        this.columnTypeOverride = columnType;
         return this;
     }
 
@@ -111,6 +125,9 @@ public class ColumnSpecBuilder {
             }
         }
         spec.setComment(this.comment);
+        if (Objects.nonNull(this.columnTypeOverride)) {
+            spec.setColumnType(this.columnTypeOverride);
+        }
         return spec;
     }
 }

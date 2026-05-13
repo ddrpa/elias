@@ -1,6 +1,7 @@
 package cc.ddrpa.dorian.elias.core.factory;
 
 import cc.ddrpa.dorian.elias.core.annotation.DefaultValue;
+import cc.ddrpa.dorian.elias.core.annotation.types.CharLength;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpecBuilder;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -91,6 +92,24 @@ public interface SpecBuilderFactory {
             DefaultValue defaultValue = Objects.requireNonNull(
                     field.getAnnotation(DefaultValue.class));
             builder.setDefaultValue(defaultValue.value());
+        }
+        return builder;
+    }
+
+    /**
+     * 当字段同时声明 {@link CharLength} 时，用其 length 覆盖语义化注解给出的默认长度，
+     * 但保留语义化注解决定的 dataType。仅供文本系语义化 factory 在 builder() 末尾调用。
+     *
+     * @param builder 已经设置好 dataType 和默认 length 的构造器
+     * @param field   被处理的字段
+     * @return 经过覆盖的 builder
+     */
+    default ColumnSpecBuilder applyCharLengthOverride(ColumnSpecBuilder builder, Field field) {
+        if (field.isAnnotationPresent(CharLength.class)) {
+            CharLength anno = Objects.requireNonNull(field.getAnnotation(CharLength.class));
+            if (anno.length() > 0) {
+                builder.setLength(anno.length());
+            }
         }
         return builder;
     }

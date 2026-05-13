@@ -32,6 +32,19 @@ public class SpecMaker {
     private static final List<SpecBuilderFactory> factories = List.of(
             new TypeOverrideSpecBuilderFactory(),
             new EncryptedSpecBuilderFactory(),
+            // 语义化注解 factory（依据注解判定，优先于按 Java 类型判定的 factory）
+            new EmailSpecBuilderFactory(),
+            new PhoneSpecBuilderFactory(),
+            new UrlSpecBuilderFactory(),
+            new MimeTypeSpecBuilderFactory(),
+            new MoneySpecBuilderFactory(),
+            new PercentageSpecBuilderFactory(),
+            new JsonSpecBuilderFactory(),
+            new IpSpecBuilderFactory(),
+            new MacAddressSpecBuilderFactory(),
+            // @Auto 在所有显式语义化注解之后、原生类型 factory 之前
+            new AutoSpecBuilderFactory(),
+            // 原生类型 factory
             new TextSpecBuilderFactory(),
             new IntegerSpecBuilderFactory(),
             new DateTimeSpecBuilderFactory(),

@@ -178,18 +178,21 @@ Elias 通过一组 `SpecBuilderFactory` 实现类型推断，按优先级顺序�
 | 优先级 | Factory | 匹配条件 | 映射结果 |
 |--------|---------|----------|----------|
 | 1 | `TypeOverrideSpecBuilderFactory` | 存在 `@TypeOverride` 注解 | 使用注解指定的类型 |
-| 2 | `TextSpecBuilderFactory` | `String`、`@UseText`、`@CharLength` | `varchar` / `text` / `mediumtext` |
-| 3 | `IntegerSpecBuilderFactory` | `int`、`long`、`short`、`byte` 及包装类 | `int` / `bigint` / `smallint` |
-| 4 | `DateTimeSpecBuilderFactory` | `LocalDate`、`LocalDateTime`、`Instant` 等 | `date` / `datetime` / `time` |
-| 5 | `EnumSpecBuilderFactory` | 枚举类型 | `smallint` |
-| 6 | `FloatSpecBuilderFactory` | `float`、`double` 及包装类 | `float` / `double` |
-| 7 | `BooleanSpecBuilderFactory` | `boolean`、`Boolean` | `tinyint(1)` |
-| 8 | `BigDecimalSpecBuilderFactory` | `BigDecimal`、`@Decimal` | `decimal(p, s)` |
-| 9 | `InetAddressSpecBuilderFactory` | `InetAddress` | `varbinary` |
-| 10 | `BinarySpecBuilderFactory` | `@IsHash`、`@IsUUID` | `binary(n)` |
-| 11 | `BlobSpecBuilderFactory` | `byte[]`、`Blob` | `blob` |
-| 12 | `CharSpecBuilderFactory` | `char`、`Character` | `char(1)` |
-| 13 | `GeometrySpecBuilderFactory` | `@IsGeo`、Geometry 类型 | `geometry` / `point` 等 |
+| 2 | `EncryptedSpecBuilderFactory` | `@IsEncrypted` | `varbinary(n)` |
+| 3 | 语义化注解 factory（见下） | `@IsEmail` / `@IsPhone` / `@IsURL` / `@IsMimeType` / `@IsMoney` / `@IsPercentage` / `@IsJSON` / `@IsIP` / `@IsMacAddress` | 各注解预设类型 |
+| 4 | `AutoSpecBuilderFactory` | `@Auto` | 按字段名 + Java 类型推断，兜底 `varchar(255)` |
+| 5 | `TextSpecBuilderFactory` | `String`、`@UseText`、`@CharLength` | `varchar` / `text` / `mediumtext` |
+| 6 | `IntegerSpecBuilderFactory` | `int`、`long`、`short`、`byte` 及包装类 | `int` / `bigint` / `smallint` |
+| 7 | `DateTimeSpecBuilderFactory` | `LocalDate`、`LocalDateTime`、`Instant` 等 | `date` / `datetime` / `time` |
+| 8 | `EnumSpecBuilderFactory` | 枚举类型 | `smallint` |
+| 9 | `FloatSpecBuilderFactory` | `float`、`double` 及包装类 | `float` / `double` |
+| 10 | `BooleanSpecBuilderFactory` | `boolean`、`Boolean` | `tinyint(1)` |
+| 11 | `BigDecimalSpecBuilderFactory` | `BigDecimal`、`@Decimal` | `decimal(p, s)` |
+| 12 | `InetAddressSpecBuilderFactory` | `InetAddress` | `varbinary` |
+| 13 | `BinarySpecBuilderFactory` | `@IsHash`、`@IsUUID` | `binary(n)` |
+| 14 | `BlobSpecBuilderFactory` | `byte[]`、`Blob` | `blob` |
+| 15 | `CharSpecBuilderFactory` | `char`、`Character`、`@IsUUIDAsStr` | `char(1)` / `char(36)` |
+| 16 | `GeometrySpecBuilderFactory` | `@IsGeo`、Geometry 类型 | `geometry` / `point` 等 |
 
 若无匹配，回退到 `varchar(5000)`。
 
@@ -374,9 +377,132 @@ private String id;
 存储 JSON 数据，映射为 MySQL `JSON` 类型。
 
 ```java
-@IsJSON(emptyAs = IsJSON.EmptyType.OBJECT)  // 空值默认为 {}
+@IsJSON(emptyAs = IsJSON.EmptyType.OBJECT)
 private String settings;
 ```
+
+注意：MySQL 5.7 / 8.0.13 之前的版本不允许 JSON 列声明 `DEFAULT` 值，
+`emptyAs` 仅作为元数据保留，由应用层在写入时填充默认值；若字段同时声明 `@DefaultValue`，
+DDL 生成时会跳过默认值并输出 `WARN` 日志。
+
+#### @IsEmail / @IsPhone / @IsURL
+
+通讯类字段，映射为 `varchar(length)`。
+
+```java
+@IsEmail                              // varchar(254)，参考 RFC 5321
+private String emailAddress;
+
+@IsPhone(length = 20)                 // varchar(20)
+private String mobile;
+
+@IsURL                                // varchar(2048)；length > 5000 时降级为 text
+private String website;
+```
+
+#### @IsIP / @IsMacAddress
+
+网络地址字段，按二进制存储以节省空间。
+
+```java
+@IsIP                                 // varbinary(16)，兼容 IPv4 / IPv6
+private byte[] clientIp;
+
+@IsIP(version = IPVersion.V4)         // binary(4)
+private byte[] serverIp;
+
+@IsMacAddress                         // binary(6)
+private byte[] hardwareAddress;
+
+@IsMacAddress(asString = true)        // char(17)
+private String macText;
+```
+
+#### @IsMoney / @IsPercentage
+
+金融数值字段，映射为 `decimal(p, s)`。
+
+```java
+@IsMoney                              // decimal(19, 4)
+private BigDecimal totalAmount;
+
+@IsPercentage                         // decimal(5, 2)
+private BigDecimal taxRate;
+```
+
+#### @IsMimeType / @IsSlug
+
+媒体与资源标识字段。
+
+```java
+@IsMimeType                           // varchar(127)，RFC 6838
+private String contentType;
+```
+
+#### @Auto
+
+根据字段的 Java 类型与字段名自动选择列类型；未命中任何规则时兜底为 `varchar(255)`。
+
+```java
+@Auto
+private String emailAddress;          // 推断为 varchar(254)
+
+@Auto
+private Long userId;                  // 推断为 bigint(20) unsigned
+
+@Auto
+private byte[] passwordHash;          // 推断为 binary(32)
+
+@Auto
+private BigDecimal totalAmount;       // 推断为 decimal(19, 4)
+```
+
+推断规则（字段名先转 snake_case 全小写）：
+
+| Java 类型 | 名称命中关键字 | 映射结果 |
+|-----------|----------------|----------|
+| `String` | `email` | `varchar(254)` |
+| `String` | `phone` / `mobile` / `tel` | `varchar(32)` |
+| `String` | `url` / `link` / `href` / `website` | `varchar(2048)` |
+| `String` | `slug` | `varchar(255)` |
+| `String` | `mime_type` / `content_type` | `varchar(127)` |
+| `String` | `timezone` / `tz_name` | `varchar(64)` |
+| `String` | `country_code` | `char(2)` |
+| `String` | `currency_code` | `char(3)` |
+| `String` | `language_code` / `locale` | `varchar(35)` |
+| `String` | `color` / `colour` | `char(7)` |
+| `String` | `mac_address` | `char(17)` |
+| `String` | `uuid` / `guid` | `char(36)` |
+| `String` | `ip_address` / `ip_addr` | `varchar(45)` |
+| `String` | `password` / `secret` / `token` / `api_key` | `char(64)` |
+| `String` | `description` / `content` / `bio` / `biography` / `remark` / `note` / `comment` / `body` / `summary` / `detail` | `text` |
+| `String` | （兜底） | `varchar(255)` |
+| `byte[]` | `sha512` | `binary(64)` |
+| `byte[]` | `sha384` | `binary(48)` |
+| `byte[]` | `sha256` / `sha_256` / `hash` / `digest` | `binary(32)` |
+| `byte[]` | `sha1` / `sha_1` | `binary(20)` |
+| `byte[]` | `md5` / `uuid` / `guid` | `binary(16)` |
+| `byte[]` | `ip_address` / `ip_addr` | `varbinary(16)` |
+| `byte[]` | （兜底） | `blob` |
+| `Long` / `long` / `BigInteger` | 名字以 `_id` 结尾 | `bigint(20) unsigned` |
+| `Long` / `long` / `BigInteger` | （兜底） | `bigint(20)` |
+| `Integer` / `int` | 任意 | `int` |
+| `Short` / `short` / `Byte` / `byte` | 任意 | `smallint` |
+| `BigDecimal` | `price` / `amount` / `cost` / `fee` / `balance` / `money` / `salary` / `revenue` / `total` | `decimal(19, 4)` |
+| `BigDecimal` | `percent` / `percentage` / `rate` / `ratio` | `decimal(5, 2)` |
+| `BigDecimal` | （兜底） | `decimal(10, 2)` |
+| `Boolean` / `boolean` | 任意 | `tinyint(1)` |
+| `Float` / `Double` 及包装类 | 任意 | `double` |
+| `LocalDate` / `java.sql.Date` | 任意 | `date` |
+| `LocalTime` / `java.sql.Time` | 任意 | `time` |
+| `LocalDateTime` / `Instant` / `ZonedDateTime` / `OffsetDateTime` / `Timestamp` / `java.util.Date` | 任意 | `datetime` |
+| `enum` | 任意 | `smallint` |
+| 其他类型 | （兜底） | `varchar(255)` |
+
+注意事项：
+- 若字段同时声明 `@CharLength`，且推断结果为 `varchar` / `char` / `text`，则用 `@CharLength.length()` 覆盖长度；
+- `@TypeOverride` / `@IsEncrypted` 以及其他具体语义化注解（如 `@IsEmail`）的优先级高于 `@Auto`，同时声明时具体注解胜出；
+- `_id` 后缀推断为 `bigint(20) unsigned` 时仅对非主键字段生效（主键由 `@TableId` 决定）。
 
 #### @IsGeo
 
