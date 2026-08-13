@@ -1,5 +1,6 @@
 package cc.ddrpa.dorian.elias.core.factory;
 
+import cc.ddrpa.dorian.elias.core.ConstantsPool;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpecBuilder;
 
 import java.lang.reflect.Field;
@@ -9,9 +10,8 @@ public class BlobSpecBuilderFactory implements SpecBuilderFactory {
     @Override
     public boolean fit(String fieldTypeName, Field field) {
         if (field.getType().isArray()) {
-            String simpleFieldType = field.getType().getSimpleName();
-            if (simpleFieldType.equalsIgnoreCase("byte[]")
-                    || simpleFieldType.equalsIgnoreCase("java.lang.Byte[]")) {
+            Class<?> componentType = field.getType().getComponentType();
+            if (componentType == byte.class || componentType == Byte.class) {
                 return true;
             }
         }
@@ -22,6 +22,6 @@ public class BlobSpecBuilderFactory implements SpecBuilderFactory {
     public ColumnSpecBuilder builder(Field field) {
         return SpecBuilderFactory.super.builder(field)
                 .setDataType("blob")
-                .setLength(64000L);
+                .setLength(ConstantsPool.BLOB_DEFAULT_LENGTH);
     }
 }

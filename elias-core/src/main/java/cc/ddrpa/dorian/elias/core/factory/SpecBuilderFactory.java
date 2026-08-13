@@ -3,7 +3,6 @@ package cc.ddrpa.dorian.elias.core.factory;
 import cc.ddrpa.dorian.elias.core.annotation.DefaultValue;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpecBuilder;
 import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import org.apache.commons.lang3.StringUtils;
@@ -26,20 +25,10 @@ public interface SpecBuilderFactory {
         // 设置 column 名称，优先级 TableId / TableField 声明 > 从 property 推导
         // NEED_CHECK 为增强可读性，暂时放弃部分性能，重复获取注解信息
         builder.setName(getColumnName(field));
-        /**
-         * 如果字段有 {@link com.baomidou.mybatisplus.annotation.TableField} 注解
-         */
-        if (field.isAnnotationPresent(TableField.class)) {
-            TableField tableFieldAnnotation = field.getAnnotation(TableField.class);
-            if (StringUtils.isNoneBlank(Objects.requireNonNull(tableFieldAnnotation).value())) {
-                builder.setName(tableFieldAnnotation.value());
-            }
-        } else if (field.isAnnotationPresent(TableId.class)) {
-            /**
-             * 如果字段有 {@link com.baomidou.mybatisplus.annotation.TableId} 注解
-             */
-            TableId tableId = field.getAnnotation(TableId.class);
-            if (StringUtils.isNoneBlank(Objects.requireNonNull(tableId).value())) {
+        // @TableField 的列名已在 SpecUtils.getColumnName 中解析，这里只需补充 @TableId 的列名声明
+        if (field.isAnnotationPresent(TableId.class)) {
+            TableId tableId = Objects.requireNonNull(field.getAnnotation(TableId.class));
+            if (StringUtils.isNoneBlank(tableId.value())) {
                 builder.setName(tableId.value());
             }
         }

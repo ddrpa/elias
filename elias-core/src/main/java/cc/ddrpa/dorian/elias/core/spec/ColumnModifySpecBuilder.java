@@ -36,7 +36,7 @@ public class ColumnModifySpecBuilder {
                         mismatch.getActualDataType(),
                         mismatch.getExpectedDataType())) {
                     // 检查是否允许降低数据类型精度
-                    columnModifySpec.addWarning(
+                    columnModifySpec.warn(
                             "* Reducing the size of a data type—like converting BIGINT to INT or DATETIME to DATE can cause truncation or loss of precision.");
                 }
             } else if (mismatch.isLengthMismatch()) {
@@ -47,7 +47,7 @@ public class ColumnModifySpecBuilder {
                         && (mismatch.getExpectedLength() < mismatch.getActualLength())) {
                     // 如果是 BLOB/CHAR/TEXT 类型，则新的长度必须大于旧的长度
                     // 检查是否允许数据范围缩小
-                    columnModifySpec.addWarning(
+                    columnModifySpec.warn(
                             "* Reducing the length of CHAR, BLOB, or TEXT columns can result in data truncation.");
                 }
             }
@@ -57,7 +57,7 @@ public class ColumnModifySpecBuilder {
             // 将可空字段转换为非空字段可能会失败
             if (mismatch.getActualNullable()) {
                 // 检查是否允许 nullable 修改为 not null
-                columnModifySpec.addWarning(
+                columnModifySpec.warn(
                         "* Setting a nullable column to NOT NULL may lead to constraint violations if any records contain null values.");
             }
         }

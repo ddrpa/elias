@@ -92,7 +92,7 @@ public class ColumnSpec {
 
     public String getColumnType() {
         if (Objects.isNull(columnType)) {
-            return setColumnType();
+            return deriveColumnType();
         }
         return this.columnType;
     }
@@ -182,7 +182,7 @@ public class ColumnSpec {
         return this;
     }
 
-    private String setColumnType() {
+    private String deriveColumnType() {
         if (this.decimalType) {
             this.columnType = String.format("decimal(%d, %d)", precision, scale);
         } else {
