@@ -176,7 +176,8 @@ public class SchemaChecker {
         }
         Map<String, IndexProperties> sqlIndexMap = fetchIndexProperties(tableSpec.getName());
         for (IndexSpec expectedIndex : tableSpec.getIndexes()) {
-            IndexProperties actualIndex = sqlIndexMap.get(expectedIndex.getName());
+            IndexProperties actualIndex = sqlIndexMap.get(
+                    expectedIndex.getName().toLowerCase(Locale.ROOT));
             if (actualIndex == null) {
                 mismatches.add(new IndexNotExistMismatch(tableSpec.getName(), expectedIndex));
                 continue;
@@ -256,7 +257,8 @@ public class SchemaChecker {
                     })
                     .toList();
             boolean unique = toInt(entry.getValue().get(0).get("NON_UNIQUE")) == 0;
-            result.put(entry.getKey(), new IndexProperties(entry.getKey(), unique, orderedColumns));
+            result.put(entry.getKey().toLowerCase(Locale.ROOT),
+                    new IndexProperties(entry.getKey(), unique, orderedColumns));
         }
         return result;
     }

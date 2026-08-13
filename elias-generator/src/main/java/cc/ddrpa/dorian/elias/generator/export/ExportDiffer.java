@@ -6,6 +6,7 @@ import cc.ddrpa.dorian.elias.core.spec.ColumnSpec;
 import cc.ddrpa.dorian.elias.core.spec.IndexSpec;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
 import cc.ddrpa.dorian.elias.core.validation.ColumnProperties;
+import cc.ddrpa.dorian.elias.core.validation.IndexProperties;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnSpecMismatch;
 import cc.ddrpa.dorian.elias.generator.MySQL57Generator;
 import cc.ddrpa.dorian.elias.generator.SQLGenerator;
@@ -17,6 +18,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -209,8 +211,19 @@ public class ExportDiffer {
             }
         }
 
+        diffIndexes(tableSpec, result);
+    }
+
+    private void diffIndexes(TableSpec tableSpec, DiffResult result)
+            throws SQLException, IOException {
+        Map<String, IndexProperties> actualIndexes = fetchIndexProperties(tableSpec.getName());
+        Set<String> expectedIndexNames = tableSpec.getIndexes().stream()
+                .map(index -> index.getName().toLowerCase(Locale.ROOT))
+                .collect(Collectors.toCollection(HashSet::new));
+
         for (IndexSpec indexSpec : tableSpec.getIndexes()) {
-            if (!indexExists(tableSpec.getName(), indexSpec.getName())) {
+            IndexProperties actual = actualIndexes.get(indexSpec.getName().toLowerCase(Locale.ROOT));
+            if (actual == null) {
                 result.add(new ExportChange(
                         Kind.CREATE_INDEX,
                         "create index `" + indexSpec.getName() + "` on `" + tableSpec.getName()
@@ -218,7 +231,39 @@ public class ExportDiffer {
                         generator.createIndex(tableSpec.getName(), indexSpec),
                         generator.dropIndex(tableSpec.getName(), indexSpec.getName()),
                         false));
+                continue;
             }
+            if (actual.validate(indexSpec).isEmpty()) {
+                continue;
+            }
+            result.add(new ExportChange(
+                    Kind.DROP_INDEX,
+                    "drop index `" + actual.getName() + "` on `" + tableSpec.getName()
+                            + "` before recreate",
+                    generator.dropIndex(tableSpec.getName(), actual.getName()),
+                    generator.createIndex(tableSpec.getName(), actual.toIndexSpec()),
+                    true));
+            result.add(new ExportChange(
+                    Kind.CREATE_INDEX,
+                    "create index `" + indexSpec.getName() + "` on `" + tableSpec.getName()
+                            + "`",
+                    generator.createIndex(tableSpec.getName(), indexSpec),
+                    generator.dropIndex(tableSpec.getName(), indexSpec.getName()),
+                    false));
+        }
+
+        for (Map.Entry<String, IndexProperties> entry : actualIndexes.entrySet()) {
+            if (expectedIndexNames.contains(entry.getKey())) {
+                continue;
+            }
+            IndexProperties extra = entry.getValue();
+            result.add(new ExportChange(
+                    Kind.DROP_INDEX,
+                    "drop extra index `" + extra.getName() + "` from `" + tableSpec.getName()
+                            + "`",
+                    generator.dropIndex(tableSpec.getName(), extra.getName()),
+                    generator.createIndex(tableSpec.getName(), extra.toIndexSpec()),
+                    true));
         }
     }
 
@@ -277,26 +322,67 @@ public class ExportDiffer {
         return true;
     }
 
-    private boolean indexExists(String tableName, String indexName) throws SQLException {
+    private Map<String, IndexProperties> fetchIndexProperties(String tableName)
+            throws SQLException {
         DatabaseMetaData meta = connection.getMetaData();
-        return indexExistsForTable(meta, tableName, indexName)
-                || indexExistsForTable(meta, tableName.toLowerCase(Locale.ROOT), indexName)
-                || indexExistsForTable(meta, tableName.toUpperCase(Locale.ROOT), indexName);
+        Map<String, IndexProperties> indexes = fetchIndexPropertiesForTable(meta, tableName);
+        if (indexes.isEmpty()) {
+            indexes = fetchIndexPropertiesForTable(meta, tableName.toLowerCase(Locale.ROOT));
+        }
+        if (indexes.isEmpty()) {
+            indexes = fetchIndexPropertiesForTable(meta, tableName.toUpperCase(Locale.ROOT));
+        }
+        return indexes;
     }
 
-    private boolean indexExistsForTable(DatabaseMetaData meta, String tableName, String indexName)
+    private Map<String, IndexProperties> fetchIndexPropertiesForTable(DatabaseMetaData meta,
+                                                                      String tableName)
             throws SQLException {
+        Map<String, List<ObservedIndexColumn>> grouped = new LinkedHashMap<>();
         try (ResultSet rs = meta.getIndexInfo(catalog, schema, tableName, false, false)) {
             while (rs.next()) {
-                if (!inCurrentCatalogSchema(rs.getString("TABLE_CAT"), rs.getString("TABLE_SCHEM"))) {
+                if (!inCurrentCatalogSchema(rs.getString("TABLE_CAT"),
+                        rs.getString("TABLE_SCHEM"))) {
+                    continue;
+                }
+                if (rs.getShort("TYPE") == DatabaseMetaData.tableIndexStatistic) {
                     continue;
                 }
                 String name = rs.getString("INDEX_NAME");
-                if (name != null && name.equalsIgnoreCase(indexName)) {
-                    return true;
+                if (name == null || isPrimaryIndex(name)) {
+                    continue;
                 }
+                String columnName = rs.getString("COLUMN_NAME");
+                if (columnName == null || columnName.isBlank()) {
+                    continue;
+                }
+                String ascOrDesc = rs.getString("ASC_OR_DESC");
+                String order = "D".equalsIgnoreCase(ascOrDesc) ? "DESC" : "ASC";
+                boolean unique = !rs.getBoolean("NON_UNIQUE");
+                int ordinal = rs.getInt("ORDINAL_POSITION");
+                grouped.computeIfAbsent(name, ignored -> new ArrayList<>())
+                        .add(new ObservedIndexColumn(ordinal, columnName, order, unique));
             }
         }
-        return false;
+        Map<String, IndexProperties> result = new LinkedHashMap<>();
+        for (Map.Entry<String, List<ObservedIndexColumn>> entry : grouped.entrySet()) {
+            List<ObservedIndexColumn> rows = new ArrayList<>(entry.getValue());
+            rows.sort(Comparator.comparingInt(ObservedIndexColumn::ordinal));
+            List<String> orderedColumns = rows.stream()
+                    .map(column -> column.columnName() + " " + column.order())
+                    .toList();
+            result.put(entry.getKey().toLowerCase(Locale.ROOT),
+                    new IndexProperties(entry.getKey(), rows.get(0).unique(), orderedColumns));
+        }
+        return result;
+    }
+
+    private static boolean isPrimaryIndex(String indexName) {
+        String upper = indexName.toUpperCase(Locale.ROOT);
+        return "PRIMARY".equals(upper) || upper.startsWith("PRIMARY_KEY");
+    }
+
+    private record ObservedIndexColumn(int ordinal, String columnName, String order,
+                                       boolean unique) {
     }
 }

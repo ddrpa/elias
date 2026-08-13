@@ -3,6 +3,8 @@ package cc.ddrpa.dorian.elias.maven;
 import cc.ddrpa.dorian.elias.core.EntitySearcher;
 import cc.ddrpa.dorian.elias.core.SpecMaker;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
+import cc.ddrpa.dorian.elias.core.validation.SchemaDefinitionIssue;
+import cc.ddrpa.dorian.elias.core.validation.SchemaDefinitionValidator;
 import cc.ddrpa.dorian.elias.generator.export.DiffResult;
 import cc.ddrpa.dorian.elias.generator.export.ExportChange;
 import cc.ddrpa.dorian.elias.generator.export.ExportDiffer;
@@ -103,6 +105,13 @@ public class ChangelogExportMojo extends AbstractMojo {
     @Parameter(property = "excludeDropColumn", defaultValue = "false")
     private boolean excludeDropColumn;
 
+    /**
+     * When true, omit extra {@code DROP INDEX} (indexes present in DB but not on entities).
+     * Recreate-on-mismatch still emits DROP + CREATE. Default {@code false}.
+     */
+    @Parameter(property = "excludeDropIndex", defaultValue = "false")
+    private boolean excludeDropIndex;
+
     @Override
     public void execute() throws MojoExecutionException {
         try {
@@ -155,11 +164,24 @@ public class ChangelogExportMojo extends AbstractMojo {
     }
 
     private DiffResult applyDropExclusions(DiffResult diff) {
-        if (!excludeDropColumn) {
-            return diff;
+        DiffResult filtered = diff;
+        if (excludeDropColumn) {
+            getLog().info("excludeDropColumn=true: DROP COLUMN omitted from export");
+            filtered = filtered.withoutKinds(EnumSet.of(ExportChange.Kind.DROP_COLUMN));
         }
-        getLog().info("excludeDropColumn=true: DROP COLUMN omitted from export");
-        return diff.withoutKinds(EnumSet.of(ExportChange.Kind.DROP_COLUMN));
+        if (!excludeDropIndex) {
+            return filtered;
+        }
+        getLog().info("excludeDropIndex=true: extra DROP INDEX omitted from export");
+        DiffResult withoutExtraIndexes = new DiffResult();
+        for (ExportChange change : filtered.getChanges()) {
+            if (change.getKind() == ExportChange.Kind.DROP_INDEX
+                    && change.getSummary().startsWith("drop extra index")) {
+                continue;
+            }
+            withoutExtraIndexes.add(change);
+        }
+        return withoutExtraIndexes;
     }
 
     private void runLiquibaseUpdate(Connection connection, Path changeLogDirPath) throws Exception {
@@ -198,16 +220,34 @@ public class ChangelogExportMojo extends AbstractMojo {
         return url != null && url.toLowerCase().startsWith("jdbc:h2:");
     }
 
-    private List<TableSpec> loadTableSpecs(ClassLoader classLoader) {
+    private List<TableSpec> loadTableSpecs(ClassLoader classLoader) throws MojoExecutionException {
         ClassLoader previous = Thread.currentThread().getContextClassLoader();
         try {
             Thread.currentThread().setContextClassLoader(classLoader);
             EntitySearcher searcher = new EntitySearcher().addPackages(scanPackages);
-            return searcher.search().stream()
+            List<TableSpec> tableSpecs = searcher.search().stream()
                     .map(SpecMaker::makeTableSpec)
                     .collect(Collectors.toList());
+            validateDefinitions(tableSpecs);
+            return tableSpecs;
         } finally {
             Thread.currentThread().setContextClassLoader(previous);
+        }
+    }
+
+    private void validateDefinitions(List<TableSpec> tableSpecs) throws MojoExecutionException {
+        SchemaDefinitionValidator validator = new SchemaDefinitionValidator();
+        List<String> errors = new ArrayList<>();
+        for (TableSpec tableSpec : tableSpecs) {
+            for (SchemaDefinitionIssue issue : validator.validate(tableSpec)) {
+                errors.add(tableSpec.getName() + ": " + issue.getType() + " "
+                        + issue.getSubject() + " - " + issue.getDetail());
+            }
+        }
+        if (!errors.isEmpty()) {
+            throw new MojoExecutionException(
+                    "Invalid schema definition, refusing changelog-export:\n"
+                            + String.join("\n", errors));
         }
     }
 

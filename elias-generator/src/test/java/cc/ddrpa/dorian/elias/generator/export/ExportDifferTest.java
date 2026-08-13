@@ -1,10 +1,17 @@
 package cc.ddrpa.dorian.elias.generator.export;
 
+import cc.ddrpa.dorian.elias.core.SpecMaker;
+import cc.ddrpa.dorian.elias.core.annotation.EliasTable;
+import cc.ddrpa.dorian.elias.core.annotation.Index;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpec;
+import cc.ddrpa.dorian.elias.core.spec.IndexSpec;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
 import cc.ddrpa.dorian.elias.generator.MySQL57Generator;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
 import org.junit.jupiter.api.Test;
 
+import javax.validation.constraints.NotNull;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
@@ -129,6 +136,143 @@ class ExportDifferTest {
             assertTrue(matcher.find());
             assertTrue(matcher.group(1).toLowerCase().contains("drop table"));
         }
+    }
+
+    @Test
+    void exportsCreateIndexWhenMissing() throws Exception {
+        try (Connection connection = h2();
+             Statement st = connection.createStatement()) {
+            st.execute("create table demo (id bigint not null primary key, name varchar(50))");
+            TableSpec expected = demoTable();
+            expected.getIndexes().add(new IndexSpec()
+                    .setName("idx_name")
+                    .setUnique(false)
+                    .setColumns("name ASC"));
+
+            DiffResult diff = differ(connection).diff(List.of(expected));
+            List<ExportChange> indexChanges = indexChanges(diff);
+            assertEquals(1, indexChanges.size());
+            assertEquals(ExportChange.Kind.CREATE_INDEX, indexChanges.get(0).getKind());
+            assertTrue(indexChanges.get(0).getSql().toLowerCase().contains("create index"));
+            assertTrue(indexChanges.get(0).getRollbackSql().toLowerCase().contains("drop index"));
+        }
+    }
+
+    @Test
+    void exportsDropAndCreateWhenIndexDefinitionChanges() throws Exception {
+        try (Connection connection = h2();
+             Statement st = connection.createStatement()) {
+            st.execute("create table demo (id bigint not null primary key, name varchar(50) not null)");
+            st.execute("create index idx_name on demo (name)");
+            TableSpec expected = demoTable();
+            expected.getIndexes().add(new IndexSpec()
+                    .setName("idx_name")
+                    .setUnique(true)
+                    .setColumns("name ASC"));
+
+            DiffResult diff = differ(connection).diff(List.of(expected));
+            List<ExportChange> indexChanges = indexChanges(diff);
+            assertTrue(indexChanges.stream()
+                    .anyMatch(c -> c.getKind() == ExportChange.Kind.DROP_INDEX));
+            assertTrue(indexChanges.stream()
+                    .anyMatch(c -> c.getKind() == ExportChange.Kind.CREATE_INDEX
+                            && c.getSql().toLowerCase().contains("unique")));
+        }
+    }
+
+    @Test
+    void exportsDropExtraIndex() throws Exception {
+        try (Connection connection = h2();
+             Statement st = connection.createStatement()) {
+            st.execute("create table demo (id bigint not null primary key, name varchar(50))");
+            st.execute("create index idx_obsolete on demo (name)");
+
+            DiffResult diff = differ(connection).diff(List.of(demoTable()));
+            List<ExportChange> extraDrops = diff.getChanges().stream()
+                    .filter(c -> c.getKind() == ExportChange.Kind.DROP_INDEX)
+                    .filter(c -> c.getSummary().startsWith("drop extra index"))
+                    .toList();
+            assertEquals(1, extraDrops.size());
+            assertTrue(extraDrops.get(0).getSql().toLowerCase().contains("idx_obsolete"));
+            assertTrue(extraDrops.get(0).getRollbackSql().toLowerCase().contains("create"));
+        }
+    }
+
+    @Test
+    void doesNotExportWhenIndexAlreadyMatches() throws Exception {
+        try (Connection connection = h2();
+             Statement st = connection.createStatement()) {
+            st.execute("create table demo (id bigint not null primary key, name varchar(50))");
+            st.execute("create index idx_name on demo (name)");
+            TableSpec expected = demoTable();
+            expected.getIndexes().add(new IndexSpec()
+                    .setName("idx_name")
+                    .setUnique(false)
+                    .setColumns("name ASC"));
+
+            DiffResult diff = differ(connection).diff(List.of(expected));
+            assertTrue(indexChanges(diff).isEmpty());
+        }
+    }
+
+    @Test
+    void exportsCreateIndexFromFieldAnnotations() throws Exception {
+        TableSpec expected = SpecMaker.makeTableSpec(IndexedAccount.class);
+        assertTrue(expected.getIndexes().stream()
+                .anyMatch(index -> "idx_username".equals(index.getName())));
+        try (Connection connection = h2();
+             Statement st = connection.createStatement()) {
+            st.execute("create table `" + expected.getName()
+                    + "` (id bigint not null primary key, username varchar(255) not null)");
+            DiffResult diff = differ(connection).diff(List.of(expected));
+            assertTrue(diff.getChanges().stream()
+                    .anyMatch(c -> c.getKind() == ExportChange.Kind.CREATE_INDEX
+                            && c.getSummary().contains("idx_username")));
+        }
+    }
+
+    @EliasTable
+    private static class IndexedAccount {
+        @TableId(type = IdType.AUTO)
+        private Long id;
+        @Index(name = "idx_username")
+        @NotNull
+        private String username;
+    }
+
+    private static Connection h2() throws Exception {
+        return DriverManager.getConnection(
+                "jdbc:h2:mem:elias_idx_" + System.nanoTime()
+                        + ";MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
+                "sa", "");
+    }
+
+    private static ExportDiffer differ(Connection connection) throws Exception {
+        return new ExportDiffer(connection, new MySQL57Generator().setDropIfExists(false));
+    }
+
+    private static TableSpec demoTable() {
+        TableSpec expected = new TableSpec().setName("demo");
+        expected.getColumns().add(new ColumnSpec()
+                .setName("id")
+                .setDataType("bigint")
+                .setColumnType("bigint")
+                .setNullable(false)
+                .setPrimaryKey(true));
+        expected.getColumns().add(new ColumnSpec()
+                .setName("name")
+                .setDataType("varchar")
+                .setColumnType("varchar(50)")
+                .setLength(50L)
+                .setNullable(true));
+        return expected;
+    }
+
+    private static List<ExportChange> indexChanges(DiffResult diff) {
+        return diff.getChanges().stream()
+                .filter(c -> c.getKind() == ExportChange.Kind.CREATE_INDEX
+                        || c.getKind() == ExportChange.Kind.DROP_INDEX)
+                .toList();
     }
 
     private static List<String> expectedRollbackOrder(List<ExportChange> changes) {

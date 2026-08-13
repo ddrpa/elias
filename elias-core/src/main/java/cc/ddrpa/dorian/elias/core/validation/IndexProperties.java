@@ -5,7 +5,6 @@ import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.IndexSpecMismatch;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Optional;
 
 public class IndexProperties {
@@ -24,10 +23,25 @@ public class IndexProperties {
         return name;
     }
 
+    public boolean isUnique() {
+        return unique;
+    }
+
+    public List<String> getOrderedColumns() {
+        return orderedColumns;
+    }
+
+    public IndexSpec toIndexSpec() {
+        return new IndexSpec()
+                .setName(name)
+                .setUnique(unique)
+                .setColumns(String.join(", ", orderedColumns));
+    }
+
     public Optional<IndexSpecMismatch> validate(IndexSpec indexSpec) {
         List<String> expectedColumns = parseColumns(indexSpec.getColumns());
         boolean uniqueMismatch = unique != indexSpec.isUnique();
-        boolean columnsMismatch = !Objects.equals(expectedColumns, orderedColumns);
+        boolean columnsMismatch = !columnListsEqual(expectedColumns, orderedColumns);
         if (!uniqueMismatch && !columnsMismatch) {
             return Optional.empty();
         }
@@ -42,6 +56,9 @@ public class IndexProperties {
     }
 
     public static List<String> parseColumns(String columns) {
+        if (columns == null || columns.isBlank()) {
+            return List.of();
+        }
         return List.of(columns.split(","))
                 .stream()
                 .map(item -> item.trim())
@@ -53,5 +70,17 @@ public class IndexProperties {
                     return columnName + " " + order;
                 })
                 .toList();
+    }
+
+    private static boolean columnListsEqual(List<String> expected, List<String> actual) {
+        if (expected.size() != actual.size()) {
+            return false;
+        }
+        for (int i = 0; i < expected.size(); i++) {
+            if (!expected.get(i).equalsIgnoreCase(actual.get(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 }
