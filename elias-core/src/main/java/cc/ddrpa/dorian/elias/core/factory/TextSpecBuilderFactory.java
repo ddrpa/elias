@@ -12,22 +12,11 @@ public class TextSpecBuilderFactory implements SpecBuilderFactory {
 
     @Override
     public boolean fit(String fieldTypeName, Field field) {
-        if (field.isAnnotationPresent(UseText.class)) {
-            return true;
-        }
-        if (field.isAnnotationPresent(CharLength.class)) {
-            return true;
-        }
-        // 字符串数组
-        if (field.getType().isArray()) {
-            String simpleFieldType = field.getType().getSimpleName();
-            if (simpleFieldType.equalsIgnoreCase("char[]")
-                    || simpleFieldType.equalsIgnoreCase("java.lang.Character[]")) {
-                return true;
-            }
-        }
-        return fieldTypeName.equalsIgnoreCase("java.lang.String") ||
-                fieldTypeName.equalsIgnoreCase("java.sql.Clob");
+        return field.isAnnotationPresent(UseText.class)
+                || field.isAnnotationPresent(CharLength.class)
+                || isCharArrayType(field)
+                || fieldTypeName.equalsIgnoreCase("java.lang.String")
+                || fieldTypeName.equalsIgnoreCase("java.sql.Clob");
     }
 
     @Override
@@ -57,7 +46,8 @@ public class TextSpecBuilderFactory implements SpecBuilderFactory {
         } else if (field.isAnnotationPresent(CharLength.class)) {
             CharLength charLengthAnno = Objects.requireNonNull(
                     field.getAnnotation(CharLength.class));
-            long estimatedLength = charLengthAnno.length() > 0L ? charLengthAnno.length() : 255L;
+            long estimatedLength = charLengthAnno.length() > 0L ? charLengthAnno.length()
+                    : ConstantsPool.VARCHAR_DEFAULT_CHARACTER_LENGTH;
             if (estimatedLength > ConstantsPool.VARCHAR_MAX_CHARACTER_LENGTH) {
                 builder.setDataType("text");
             } else if (charLengthAnno.fixed()) {
@@ -65,17 +55,22 @@ public class TextSpecBuilderFactory implements SpecBuilderFactory {
             } else {
                 builder.setDataType("varchar").setLength(charLengthAnno.length());
             }
-        } else if (field.getType().isArray()) {
-            String simpleFieldType = field.getType().getSimpleName();
-            if (simpleFieldType.equalsIgnoreCase("char[]")
-                    || simpleFieldType.equalsIgnoreCase("java.lang.Character[]")) {
-                builder.setDataType("text");
-            }
+        } else if (isCharArrayType(field)) {
+            builder.setDataType("text");
         } else if (field.getType().getName().equalsIgnoreCase("java.sql.Clob")) {
             builder.setDataType("text");
         } else {
-            builder.setDataType("varchar").setLength(255L);
+            builder.setDataType("varchar")
+                    .setLength(ConstantsPool.VARCHAR_DEFAULT_CHARACTER_LENGTH);
         }
         return builder;
+    }
+
+    private static boolean isCharArrayType(Field field) {
+        if (!field.getType().isArray()) {
+            return false;
+        }
+        Class<?> componentType = field.getType().getComponentType();
+        return componentType == char.class || componentType == Character.class;
     }
 }

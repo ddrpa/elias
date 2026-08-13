@@ -35,9 +35,10 @@
   </scm>
 
   <modules>
-    <module>elias-spring-boot-starter</module>
     <module>elias-core</module>
     <module>elias-generator</module>
+    <module>elias-spring-boot-starter</module>
+    <module>elias-maven-plugin</module>
   </modules>
 
   <properties>

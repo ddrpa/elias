@@ -19,6 +19,6 @@ class MySQL57GeneratorIndexDDLTest {
         String dropSql = generator.dropIndex("tbl_account", "uk_username_email");
         Assertions.assertTrue(createSql.contains(
                 "create unique index uk_username_email on `tbl_account` (username ASC, email_address DESC);"));
-        Assertions.assertTrue(dropSql.contains("drop index uk_username_email on `tbl_account`;"));
+        Assertions.assertTrue(dropSql.contains("drop index `uk_username_email` on `tbl_account`;"));
     }
 }

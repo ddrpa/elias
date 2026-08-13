@@ -51,7 +51,7 @@ public class ColumnModifySpec {
      * @param warning
      */
     public void warn(String warning) {
-        warnings.add(warning);
+        addWarning(warning);
         this.autoFixEnabled = false;
     }
 

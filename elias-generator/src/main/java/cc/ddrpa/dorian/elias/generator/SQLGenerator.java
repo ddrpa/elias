@@ -16,6 +16,10 @@ public interface SQLGenerator {
     String modifyColumn(String tableName, String columnName,
                         ColumnModifySpec columnModifySpec) throws IOException;
 
+    String dropColumn(String tableName, String columnName) throws IOException;
+
+    String dropTable(String tableName) throws IOException;
+
     String createIndex(String tableName, IndexSpec indexSpec) throws IOException;
 
     String dropIndex(String tableName, String indexName) throws IOException;

@@ -46,7 +46,7 @@ class SchemaCheckerIndexTest {
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate, times(2)).execute(sqlCaptor.capture());
         Assertions.assertTrue(sqlCaptor.getAllValues().stream()
-                .anyMatch(sql -> sql.contains("drop index idx_username on `tbl_account`")));
+                .anyMatch(sql -> sql.contains("drop index `idx_username` on `tbl_account`")));
         Assertions.assertTrue(sqlCaptor.getAllValues().stream()
                 .anyMatch(sql -> sql.contains("create index idx_username on `tbl_account` (username ASC)")));
     }

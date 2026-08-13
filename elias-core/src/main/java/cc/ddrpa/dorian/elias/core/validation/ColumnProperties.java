@@ -37,7 +37,6 @@ public class ColumnProperties {
     public ColumnProperties(Map<String, Object> rawProperties) {
         this.name = rawProperties.get("COLUMN_NAME").toString();
         this.dataType = rawProperties.get("DATA_TYPE").toString().toLowerCase();
-        this.columnType = rawProperties.get("COLUMN_TYPE").toString().toLowerCase();
         this.nullable = rawProperties.get("IS_NULLABLE").toString().equalsIgnoreCase("YES");
         this.characterType = dataType.endsWith("char");
         this.textType = dataType.endsWith("text");
@@ -49,6 +48,14 @@ public class ColumnProperties {
         } else {
             this.dataLength = Optional.empty();
         }
+        Object rawColumnType = rawProperties.get("COLUMN_TYPE");
+        if (Objects.nonNull(rawColumnType) && StringUtils.isNotBlank(rawColumnType.toString())) {
+            this.columnType = rawColumnType.toString().toLowerCase();
+        } else if (dataLength.isPresent() && (characterType || binaryType)) {
+            this.columnType = dataType + "(" + dataLength.get() + ")";
+        } else {
+            this.columnType = dataType;
+        }
         if (Objects.nonNull(rawProperties.get("COLUMN_DEFAULT"))) {
             this.defaultValueAsString = Optional.of(rawProperties.get("COLUMN_DEFAULT").toString());
         } else {
@@ -58,6 +65,26 @@ public class ColumnProperties {
 
     public String getName() {
         return name;
+    }
+
+    public String getDataType() {
+        return dataType;
+    }
+
+    public String getColumnType() {
+        return columnType;
+    }
+
+    public Boolean getNullable() {
+        return nullable;
+    }
+
+    public Optional<Long> getDataLength() {
+        return dataLength;
+    }
+
+    public Optional<String> getDefaultValueAsString() {
+        return defaultValueAsString;
     }
 
     /**

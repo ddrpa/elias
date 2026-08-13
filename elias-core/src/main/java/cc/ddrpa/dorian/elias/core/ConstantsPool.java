@@ -10,6 +10,8 @@ public class ConstantsPool {
     public static final long TEXT_MAX_CHARACTER_LENGTH = 65535L;
     public static final long MEDIUMTEXT_MAX_CHARACTER_LENGTH = 16_777_215L;
     public static final long LONGTEXT_MAX_CHARACTER_LENGTH = 4_294_967_295L;
+    // BLOB
+    public static final long BLOB_DEFAULT_LENGTH = 64000L;
     // BIG_DECIMAL，99999999.99 - −99,999,999.99
     public static final int BIG_DECIMAL_DEFAULT_PRECISION = 10;
     public static final int BIG_DECIMAL_DEFAULT_SCALE = 2;
