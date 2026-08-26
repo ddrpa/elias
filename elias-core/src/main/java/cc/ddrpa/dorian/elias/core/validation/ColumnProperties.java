@@ -10,7 +10,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * 列的属性，只检查类型、长度、是否可空、默认值
+ * 列的属性，检查类型、长度、是否可空、默认值、comment（仅库空时补）
  */
 public class ColumnProperties {
 
@@ -34,6 +34,8 @@ public class ColumnProperties {
     private final Optional<Long> dataLength;
     // 默认值
     private final Optional<String> defaultValueAsString;
+    // 列注释（INFORMATION_SCHEMA.COLUMNS.COLUMN_COMMENT）
+    private final Optional<String> comment;
 
     public ColumnProperties(Map<String, Object> rawProperties) {
         this.name = rawProperties.get("COLUMN_NAME").toString();
@@ -66,6 +68,12 @@ public class ColumnProperties {
         } else {
             this.defaultValueAsString = Optional.empty();
         }
+        Object rawComment = rawProperties.get("COLUMN_COMMENT");
+        if (Objects.nonNull(rawComment) && StringUtils.isNotBlank(rawComment.toString())) {
+            this.comment = Optional.of(rawComment.toString());
+        } else {
+            this.comment = Optional.empty();
+        }
     }
 
     public String getName() {
@@ -92,6 +100,10 @@ public class ColumnProperties {
         return defaultValueAsString;
     }
 
+    public Optional<String> getComment() {
+        return comment;
+    }
+
     /**
      * 检查列的属性是否与给定的 ColumnSpec 一致
      *
@@ -101,6 +113,8 @@ public class ColumnProperties {
     public Optional<ColumnSpecMismatch> validate(ColumnSpec columnSpec) {
         boolean columnSpecMismatchFlag = false;
         ColumnSpecMismatch columnSpecMismatch = new ColumnSpecMismatch();
+        // 始终带上库侧 comment，供 MODIFY 保留已有注释
+        columnSpecMismatch.setActualComment(comment.orElse(null));
         if (dataType.equals(columnSpec.getDataType())) {
             if (characterType || blobType || binaryType) {
                 // 如果 DataType 一致，且类型是 Blob、Char 或 Binary 类型，才检查长度是否有变化
@@ -135,6 +149,11 @@ public class ColumnProperties {
             columnSpecMismatch.addDefaultValueMismatch(
                     columnSpec.getDefaultValue(),
                     defaultValueAsString.get());
+            columnSpecMismatchFlag = true;
+        }
+        // 仅当库 comment 为空且 Spec 有非空 comment 时补写，不覆盖已有注释
+        if (comment.isEmpty() && StringUtils.isNotBlank(columnSpec.getComment())) {
+            columnSpecMismatch.addCommentMismatch(columnSpec.getComment(), null);
             columnSpecMismatchFlag = true;
         }
         if (columnSpecMismatchFlag) {

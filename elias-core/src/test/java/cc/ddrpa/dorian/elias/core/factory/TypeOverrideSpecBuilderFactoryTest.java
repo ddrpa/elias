@@ -55,6 +55,7 @@ class TypeOverrideSpecBuilderFactoryTest {
         row.put("DATA_TYPE", "varbinary");
         row.put("CHARACTER_MAXIMUM_LENGTH", 16L);
         row.put("COLUMN_TYPE", "varbinary(16)");
+        row.put("COLUMN_COMMENT", null);
 
         Assertions.assertTrue(new ColumnProperties(row).validate(column).isEmpty());
     }

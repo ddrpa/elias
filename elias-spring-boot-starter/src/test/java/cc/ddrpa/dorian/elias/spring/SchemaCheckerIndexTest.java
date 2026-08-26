@@ -93,6 +93,7 @@ class SchemaCheckerIndexTest {
         row.put("DATA_TYPE", "varchar");
         row.put("CHARACTER_MAXIMUM_LENGTH", 255L);
         row.put("COLUMN_TYPE", "varchar(255)");
+        row.put("COLUMN_COMMENT", null);
         return List.of(row);
     }
 

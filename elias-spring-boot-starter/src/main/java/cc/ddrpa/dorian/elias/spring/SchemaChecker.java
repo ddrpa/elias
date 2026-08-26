@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 
 public class SchemaChecker {
 
-    private static final String FETCH_METADATA_SQL = "select COLUMN_NAME, COLUMN_DEFAULT, IS_NULLABLE, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, COLUMN_TYPE from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA = ? and TABLE_NAME = ?";
+    private static final String FETCH_METADATA_SQL = "select COLUMN_NAME, COLUMN_DEFAULT, IS_NULLABLE, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, COLUMN_TYPE, COLUMN_COMMENT from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA = ? and TABLE_NAME = ?";
     private static final String FETCH_INDEX_METADATA_SQL = "select INDEX_NAME, NON_UNIQUE, SEQ_IN_INDEX, COLUMN_NAME, COLLATION from INFORMATION_SCHEMA.STATISTICS where TABLE_SCHEMA = ? and TABLE_NAME = ? order by INDEX_NAME, SEQ_IN_INDEX";
     private static final Logger logger = LoggerFactory.getLogger(SchemaChecker.class);
     private static final SchemaDefinitionValidator DEFINITION_VALIDATOR = new SchemaDefinitionValidator();

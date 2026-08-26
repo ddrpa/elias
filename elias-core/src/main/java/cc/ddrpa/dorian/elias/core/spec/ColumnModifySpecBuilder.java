@@ -1,6 +1,7 @@
 package cc.ddrpa.dorian.elias.core.spec;
 
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnSpecMismatch;
+import org.apache.commons.lang3.StringUtils;
 
 public class ColumnModifySpecBuilder {
 
@@ -12,7 +13,6 @@ public class ColumnModifySpecBuilder {
      *     <li>不允许将可空字段转换为非空字段（不考虑配置了 default value 的情况）</li>
      *     <li>如果转换的目标类型不是 TEXT 类型，则不允许转换前的长度大于转换后的长度</li>
      *     <li>转换目标类型必须符合无损转换要求</li>
-     *     <li></li>
      * </ul>
      *
      * @param mismatch 列规范不匹配信息
@@ -26,6 +26,13 @@ public class ColumnModifySpecBuilder {
         columnModifySpec.setColumnType(expectedSpec.getColumnType());
         columnModifySpec.setNullable(expectedSpec.isNullable());
         columnModifySpec.setDefaultValue(expectedSpec.getDefaultValue());
+        // MODIFY 必须带 comment：优先保留库侧；库空且 Spec 有值时补写
+        String actualComment = mismatch.getActualComment();
+        if (StringUtils.isNotBlank(actualComment)) {
+            columnModifySpec.setComment(actualComment);
+        } else if (StringUtils.isNotBlank(expectedSpec.getComment())) {
+            columnModifySpec.setComment(expectedSpec.getComment());
+        }
 
         // 设置修改标记
         if (mismatch.isColumnTypeMismatch()) {
@@ -63,6 +70,9 @@ public class ColumnModifySpecBuilder {
         }
         if (mismatch.isDefaultValueMismatch()) {
             columnModifySpec.setAlterDefaultValue(true);
+        }
+        if (mismatch.isCommentMismatch()) {
+            columnModifySpec.setAlterComment(true);
         }
         return columnModifySpec;
     }

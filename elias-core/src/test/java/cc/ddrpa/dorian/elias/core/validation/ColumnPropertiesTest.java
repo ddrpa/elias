@@ -70,6 +70,7 @@ class ColumnPropertiesTest {
         row.put("IS_NULLABLE", "YES");
         row.put("DATA_TYPE", dataType);
         row.put("COLUMN_TYPE", columnType);
+        row.put("COLUMN_COMMENT", null);
         return row;
     }
 }

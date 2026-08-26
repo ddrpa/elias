@@ -295,6 +295,17 @@ private String description;
 private String description;
 ```
 
+列 comment 可从可选的 OpenAPI 注解读取（**无需** swagger 依赖；classpath 上有则生效）：
+
+```java
+@Schema(description = "登录用户名")
+private String username;
+```
+
+- `CREATE TABLE` / `ADD COLUMN`：Spec 有非空 comment 时写入 `COMMENT '...'`
+- `MODIFY COLUMN`：仅当库中 `COLUMN_COMMENT` 为空时补写；已有注释永不覆盖
+- 任意 `MODIFY` 都会带上最终 comment（保留库侧或补 Spec），避免 MySQL 清空已有 COMMENT
+
 #### @DefaultValue
 
 设置列的默认值。

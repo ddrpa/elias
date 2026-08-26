@@ -21,6 +21,7 @@ final class ObservedColumnFactory {
                 .setNullable(Boolean.TRUE.equals(props.getNullable()));
         props.getDataLength().ifPresent(spec::setLength);
         props.getDefaultValueAsString().ifPresent(spec::setDefaultValue);
+        props.getComment().ifPresent(spec::setComment);
         return spec;
     }
 
@@ -28,6 +29,7 @@ final class ObservedColumnFactory {
         return new ColumnModifySpec()
                 .setColumnType(props.getColumnType())
                 .setNullable(Boolean.TRUE.equals(props.getNullable()))
-                .setDefaultValue(props.getDefaultValueAsString().orElse(null));
+                .setDefaultValue(props.getDefaultValueAsString().orElse(null))
+                .setComment(props.getComment().orElse(null));
     }
 }

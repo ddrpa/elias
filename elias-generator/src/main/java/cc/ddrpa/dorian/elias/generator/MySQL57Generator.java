@@ -20,7 +20,7 @@ public class MySQL57Generator implements SQLGenerator {
             {% endif %}
             create table `{{ t.name }}` (
             {% for c in t.columns %}
-              `{{ c.name }}` {{ c.columnType }}{% if c.nullable %} null{% else %} not null{% endif %}{% if c.defaultValue %} default '{{ c.defaultValue }}'{% endif %}{% if c.autoIncrement %} auto_increment{% endif %}
+              `{{ c.name }}` {{ c.columnType }}{% if c.nullable %} null{% else %} not null{% endif %}{% if c.defaultValue %} default '{{ c.defaultValue }}'{% endif %}{% if c.autoIncrement %} auto_increment{% endif %}{% if c.sqlComment %} comment '{{ c.sqlComment }}'{% endif %}
               {% if c.primaryKey %}  primary key{% endif %}{% if not loop.last %},{% endif %}
             
             {% endfor %}
@@ -37,7 +37,7 @@ public class MySQL57Generator implements SQLGenerator {
             {% endif %}
             create table {{ t.name }} (
             {% for c in t.columns %}
-              {{ c.name }} {{ c.columnType }}{% if c.nullable %} null{% else %} not null{% endif %}{% if c.defaultValue %} default '{{ c.defaultValue }}'{% endif %}{% if c.autoIncrement %} auto_increment{% endif %}
+              {{ c.name }} {{ c.columnType }}{% if c.nullable %} null{% else %} not null{% endif %}{% if c.defaultValue %} default '{{ c.defaultValue }}'{% endif %}{% if c.autoIncrement %} auto_increment{% endif %}{% if c.sqlComment %} comment '{{ c.sqlComment }}'{% endif %}
               {% if c.primaryKey %}  primary key{% endif %}{% if not loop.last %},{% endif %}
             
             {% endfor %}
@@ -50,7 +50,7 @@ public class MySQL57Generator implements SQLGenerator {
             {% endfor %}
             """;
     private static final String ADD_COLUMN_TEMPLATE = """
-            alter table `{{ table }}` add column `{{ c.name }}` {{ c.columnType }}{% if c.nullable %} null{% else %} not null{% endif %}{% if c.defaultValue %} default '{{ c.defaultValue }}'{% endif %}{% if c.autoIncrement %} auto_increment{% endif %}{% if c.primaryKey %}
+            alter table `{{ table }}` add column `{{ c.name }}` {{ c.columnType }}{% if c.nullable %} null{% else %} not null{% endif %}{% if c.defaultValue %} default '{{ c.defaultValue }}'{% endif %}{% if c.autoIncrement %} auto_increment{% endif %}{% if c.sqlComment %} comment '{{ c.sqlComment }}'{% endif %}{% if c.primaryKey %}
                 primary key{% endif %};
             """;
     /**
@@ -58,7 +58,7 @@ public class MySQL57Generator implements SQLGenerator {
      * 即使只修改某个属性，也需要重新声明所有属性
      */
     private static final String MODIFY_COLUMN_TEMPLATE = """
-            alter table `{{ table }}` modify column `{{ column }}` {{ cm.columnType }}{% if cm.nullable %} null{% else %} not null{% endif %}{% if cm.defaultValue is not null %} default '{{ cm.defaultValue }}'{% endif %};
+            alter table `{{ table }}` modify column `{{ column }}` {{ cm.columnType }}{% if cm.nullable %} null{% else %} not null{% endif %}{% if cm.defaultValue is not null %} default '{{ cm.defaultValue }}'{% endif %}{% if cm.sqlComment %} comment '{{ cm.sqlComment }}'{% endif %};
             """;
     private static final String DROP_COLUMN_TEMPLATE = """
             alter table `{{ table }}` drop column `{{ column }}`;
@@ -95,6 +95,7 @@ public class MySQL57Generator implements SQLGenerator {
     public MySQL57Generator() {
         PebbleEngine engine = new PebbleEngine.Builder()
                 .loader(new StringLoader())
+                .autoEscaping(false)
                 .build();
         this.createTableTemplate = engine.getTemplate(CREATE_TABLE_TEMPLATE);
         this.createH2TableTemplate = engine.getTemplate(CREATE_H2_TABLE_TEMPLATE);

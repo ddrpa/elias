@@ -127,7 +127,7 @@ public class ExportDiffer {
                         .orElseThrow();
                 // CHANGE COLUMN is MySQL-only; exported for prod MySQL, not for H2 replay.
                 String sql = String.format(
-                        "alter table `%s` change column `%s` `%s` %s%s%s;",
+                        "alter table `%s` change column `%s` `%s` %s%s%s%s;",
                         tableSpec.getName(),
                         fromProps.getName(),
                         expectedCol.getName(),
@@ -135,9 +135,12 @@ public class ExportDiffer {
                         expectedCol.isNullable() ? " null" : " not null",
                         expectedCol.getDefaultValue() != null
                                 ? " default '" + expectedCol.getDefaultValue() + "'"
+                                : "",
+                        expectedCol.getSqlComment() != null
+                                ? " comment '" + expectedCol.getSqlComment() + "'"
                                 : "");
                 String rollbackSql = String.format(
-                        "alter table `%s` change column `%s` `%s` %s%s%s;",
+                        "alter table `%s` change column `%s` `%s` %s%s%s%s;",
                         tableSpec.getName(),
                         expectedCol.getName(),
                         fromProps.getName(),
@@ -145,6 +148,9 @@ public class ExportDiffer {
                         Boolean.TRUE.equals(fromProps.getNullable()) ? " null" : " not null",
                         fromProps.getDefaultValueAsString().isPresent()
                                 ? " default '" + fromProps.getDefaultValueAsString().get() + "'"
+                                : "",
+                        fromProps.getComment().isPresent()
+                                ? " comment '" + fromProps.getComment().get().replace("'", "''") + "'"
                                 : "");
                 result.add(new ExportChange(
                         Kind.MODIFY_COLUMN,
@@ -299,6 +305,7 @@ public class ExportDiffer {
                 boolean sizeNull = rs.wasNull();
                 row.put("CHARACTER_MAXIMUM_LENGTH", sizeNull || size <= 0 ? null : size);
                 row.put("COLUMN_TYPE", null);
+                row.put("COLUMN_COMMENT", rs.getString("REMARKS"));
                 rows.add(row);
             }
         }

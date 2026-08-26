@@ -41,6 +41,16 @@ public class ColumnSpecMismatch implements ISpecMismatch {
     private String expectedDefaultValue;
     private String actualDefaultValue;
 
+    /**
+     * comment 不匹配（仅库为空、Spec 有值）
+     */
+    private boolean commentMismatch = false;
+    private String expectedComment;
+    /**
+     * 库侧实际 comment，用于 MODIFY 时保留已有注释
+     */
+    private String actualComment;
+
     private String tableName;
     private String columnName;
 
@@ -84,6 +94,20 @@ public class ColumnSpecMismatch implements ISpecMismatch {
         return this;
     }
 
+    public ColumnSpecMismatch addCommentMismatch(String expectedComment, String actualComment) {
+        this.expectedComment = expectedComment;
+        if (actualComment != null) {
+            this.actualComment = actualComment;
+        }
+        this.commentMismatch = true;
+        return this;
+    }
+
+    public ColumnSpecMismatch setActualComment(String actualComment) {
+        this.actualComment = actualComment;
+        return this;
+    }
+
     @Override
     public String errorMessage() {
         List<String> mismatchMessages = new ArrayList<>(2);
@@ -116,6 +140,13 @@ public class ColumnSpecMismatch implements ISpecMismatch {
                             : String.format("'%s'", expectedDefaultValue),
                     Objects.isNull(actualDefaultValue) ? "<null>"
                             : String.format("'%s'", actualDefaultValue)));
+        }
+        if (commentMismatch) {
+            mismatchMessages.add(String.format("* Column comment not match: expected %s, actual %s",
+                    Objects.isNull(expectedComment) ? "<null>"
+                            : String.format("'%s'", expectedComment),
+                    Objects.isNull(actualComment) || actualComment.isBlank() ? "<null>"
+                            : String.format("'%s'", actualComment)));
         }
         return String.format("Column `%s` in table `%s` has specification mismatch:\n%s",
                 columnName, tableName, mismatchMessages.stream().collect(Collectors.joining("\n")));
@@ -183,6 +214,18 @@ public class ColumnSpecMismatch implements ISpecMismatch {
 
     public String getActualDefaultValue() {
         return actualDefaultValue;
+    }
+
+    public boolean isCommentMismatch() {
+        return commentMismatch;
+    }
+
+    public String getExpectedComment() {
+        return expectedComment;
+    }
+
+    public String getActualComment() {
+        return actualComment;
     }
 
     public String getTableName() {

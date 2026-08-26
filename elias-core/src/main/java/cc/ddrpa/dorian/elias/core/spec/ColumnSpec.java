@@ -47,7 +47,7 @@ public class ColumnSpec {
     private boolean primaryKey = false;
     private boolean autoIncrement = false;
     private String defaultValue;
-    // 不好弄，运行时读不到注释了
+    // 不好弄，运行时读不到 JavaDoc；可选从 @Schema(description) 反射填充
     private String comment;
 
     public String getName() {
@@ -174,6 +174,16 @@ public class ColumnSpec {
     public ColumnSpec setComment(String comment) {
         this.comment = comment;
         return this;
+    }
+
+    /**
+     * DDL 用的已转义 comment；空白时返回 null（模板据此省略 COMMENT 子句）。
+     */
+    public String getSqlComment() {
+        if (comment == null || comment.isBlank()) {
+            return null;
+        }
+        return comment.replace("'", "''");
     }
 
     public ColumnSpec setPrecisionAndScale(Integer precision, Integer scale) {

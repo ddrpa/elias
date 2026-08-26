@@ -1,5 +1,6 @@
 package cc.ddrpa.dorian.elias.core.factory;
 
+import cc.ddrpa.dorian.elias.core.OptionalAnnotationAttributes;
 import cc.ddrpa.dorian.elias.core.annotation.DefaultValue;
 import cc.ddrpa.dorian.elias.core.annotation.types.CharLength;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpecBuilder;
@@ -19,6 +20,17 @@ public interface SpecBuilderFactory {
 
     Logger logger = LoggerFactory.getLogger(SpecBuilderFactory.class);
 
+    String SCHEMA_ANNOTATION = "io.swagger.v3.oas.annotations.media.Schema";
+
+    String[] NOT_NULL_ANNOTATIONS = {
+            "javax.validation.constraints.NotNull",
+            "javax.validation.constraints.NotEmpty",
+            "javax.validation.constraints.NotBlank",
+            "jakarta.validation.constraints.NotNull",
+            "jakarta.validation.constraints.NotEmpty",
+            "jakarta.validation.constraints.NotBlank",
+    };
+
     boolean fit(String fieldTypeName, Field field);
 
     default ColumnSpecBuilder builder(Field field) {
@@ -33,6 +45,7 @@ public interface SpecBuilderFactory {
                 builder.setName(tableId.value());
             }
         }
+        applyOptionalComment(builder, field);
         // 数据类型和长度精度等配置的判断交给子类
         /**
          * 如果字段有 {@link com.baomidou.mybatisplus.annotation.TableId} 注解，设置为主键
@@ -53,28 +66,12 @@ public interface SpecBuilderFactory {
         if (field.isAnnotationPresent(TableLogic.class)) {
             builder.setDefaultValue("0");
         }
-        /**
-         * 如果字段有 {@link javax.validation.constraints.NotBlank},
-         * {@link javax.validation.constraints.NotEmpty},
-         * {@link javax.validation.constraints.NotNull} 注解，设置为非空
-         */
-        try {
-            if (field.isAnnotationPresent(javax.validation.constraints.NotNull.class) ||
-                    field.isAnnotationPresent(javax.validation.constraints.NotEmpty.class) ||
-                    field.isAnnotationPresent(javax.validation.constraints.NotBlank.class)
-            ) {
+        // javax / jakarta validation 可选：按 FQCN 反射探测，无 compile 依赖
+        for (String annotationName : NOT_NULL_ANNOTATIONS) {
+            if (OptionalAnnotationAttributes.isPresent(field, annotationName)) {
                 builder.setNullable(false);
+                break;
             }
-        } catch (NoClassDefFoundError ignored) {
-        }
-        try {
-            if (field.isAnnotationPresent(jakarta.validation.constraints.NotBlank.class) ||
-                    field.isAnnotationPresent(jakarta.validation.constraints.NotNull.class) ||
-                    field.isAnnotationPresent(jakarta.validation.constraints.NotEmpty.class)
-            ) {
-                builder.setNullable(false);
-            }
-        } catch (NoClassDefFoundError ignored) {
         }
         // DefaultValue 注解修饰的属性
         if (field.isAnnotationPresent(DefaultValue.class)) {
@@ -83,6 +80,17 @@ public interface SpecBuilderFactory {
             builder.setDefaultValue(defaultValue.value());
         }
         return builder;
+    }
+
+    /**
+     * 从可选的 OpenAPI {@code @Schema(description)} 填充列 comment；已有 comment 不覆盖。
+     */
+    default void applyOptionalComment(ColumnSpecBuilder builder, Field field) {
+        if (StringUtils.isNotBlank(builder.getComment())) {
+            return;
+        }
+        OptionalAnnotationAttributes.readStringAttribute(field, SCHEMA_ANNOTATION, "description")
+                .ifPresent(builder::setComment);
     }
 
     /**

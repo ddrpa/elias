@@ -87,6 +87,10 @@ public class ColumnSpecBuilder {
         return this;
     }
 
+    public String getComment() {
+        return comment;
+    }
+
     public ColumnSpecBuilder setNullable(Boolean nullable) {
         if (isPrimaryKey()) {
             throw new IllegalStateException("Primary key column cannot be nullable");
