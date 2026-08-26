@@ -1,6 +1,7 @@
 package cc.ddrpa.dorian.elias.core.validation;
 
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpec;
+import cc.ddrpa.dorian.elias.core.spec.ColumnTypeParser;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnSpecMismatch;
 import org.apache.commons.lang3.StringUtils;
 
@@ -42,20 +43,24 @@ public class ColumnProperties {
         this.textType = dataType.endsWith("text");
         this.blobType = dataType.equals("blob");
         this.binaryType = dataType.endsWith("binary");
+        Optional<Long> lengthFromMeta = Optional.empty();
         if (Objects.nonNull(rawProperties.get("CHARACTER_MAXIMUM_LENGTH"))) {
-            this.dataLength = Optional.of(
+            lengthFromMeta = Optional.of(
                     Long.parseLong(rawProperties.get("CHARACTER_MAXIMUM_LENGTH").toString()));
-        } else {
-            this.dataLength = Optional.empty();
         }
         Object rawColumnType = rawProperties.get("COLUMN_TYPE");
         if (Objects.nonNull(rawColumnType) && StringUtils.isNotBlank(rawColumnType.toString())) {
             this.columnType = rawColumnType.toString().toLowerCase();
-        } else if (dataLength.isPresent() && (characterType || binaryType)) {
-            this.columnType = dataType + "(" + dataLength.get() + ")";
+        } else if (lengthFromMeta.isPresent() && (characterType || binaryType)) {
+            this.columnType = dataType + "(" + lengthFromMeta.get() + ")";
         } else {
             this.columnType = dataType;
         }
+        // 部分驱动 / 兼容模式下 CHARACTER_MAXIMUM_LENGTH 可能为空，但 COLUMN_TYPE 仍带长度
+        // （例如 varbinary(512)）。长度比对优先用元数据，缺失时从 COLUMN_TYPE 回退解析，避免误报。
+        this.dataLength = lengthFromMeta.isPresent()
+                ? lengthFromMeta
+                : ColumnTypeParser.parseLengthFromColumnType(this.columnType);
         if (Objects.nonNull(rawProperties.get("COLUMN_DEFAULT"))) {
             this.defaultValueAsString = Optional.of(rawProperties.get("COLUMN_DEFAULT").toString());
         } else {

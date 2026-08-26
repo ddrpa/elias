@@ -8,6 +8,9 @@ import java.lang.annotation.Target;
 /**
  * 覆盖列的类型，注意对 VARCHAR 和 CHAR 类型，length 表示的是字符长度，其他情况下则表示可视长度
  * <p>
+ * {@code type} 支持嵌入长度，例如 {@code varchar(500)}、{@code VARBINARY(16)}；
+ * 若同时声明 {@link #length()}，以 {@code length} 为准。
+ * <p>
  * 优先级高于类型推断，但低于 Id 之类的声明
  */
 @Target({ElementType.FIELD})

@@ -219,13 +219,13 @@ public class SchemaChecker {
 
     private void autoFixAddColumn(String tableName, String columnName, String sql) {
         executeMultiSQL(sql);
-        logger.warn("Applying auto-fix…… Column `{}` added in table `{}`.", tableName, columnName);
+        logger.warn("Applying auto-fix…… Column `{}` added in table `{}`.", columnName, tableName);
     }
 
     private void autoFixModifyColumn(String tableName, String columnName, String sql) {
         executeMultiSQL(sql);
-        logger.warn("Applying auto-fix…… Column `{}` modified in table `{}`.", tableName,
-                columnName);
+        logger.warn("Applying auto-fix…… Column `{}` modified in table `{}`.", columnName,
+                tableName);
     }
 
     private void autoFixCreateIndex(String tableName, String indexName, String sql) {

@@ -116,10 +116,6 @@ public class SpecMaker {
         Set<String> existedColumnNameSet = columnSpecs.stream()
                 .map(ColumnSpec::getName)
                 .collect(Collectors.toSet());
-        Set<String> nonNullColumnNameSet = columnSpecs.stream()
-                .filter(columnSpec -> !columnSpec.isNullable())
-                .map(ColumnSpec::getName)
-                .collect(Collectors.toSet());
         Map<String, IndexSpec> indexSpecMap = new LinkedHashMap<>();
         List<IndexSpec> annotatedIndexSpecs = Arrays.stream(eliasTableAnno.indexes())
                 .map(indexAnno -> new IndexSpec()
@@ -129,12 +125,12 @@ public class SpecMaker {
                 .toList();
         for (IndexSpec indexSpec : annotatedIndexSpecs) {
             putIndexSpec(indexSpecMap, buildAndValidateIndexSpec(indexSpec, existedColumnNameSet,
-                    nonNullColumnNameSet, "@EliasTable.indexes"));
+                    "@EliasTable.indexes"));
         }
         List<IndexSpec> fieldIndexSpecs = createFieldIndexSpecs(fields);
         for (IndexSpec fieldIndexSpec : fieldIndexSpecs) {
             putIndexSpec(indexSpecMap, buildAndValidateIndexSpec(fieldIndexSpec, existedColumnNameSet,
-                    nonNullColumnNameSet, "@Index/@UniqueIndex"));
+                    "@Index/@UniqueIndex"));
         }
         List<IndexSpec> result = new ArrayList<>(indexSpecMap.values());
         analyzeRedundantIndexes(result);
@@ -321,7 +317,6 @@ public class SpecMaker {
 
     private static IndexSpec buildAndValidateIndexSpec(IndexSpec sourceSpec,
                                                        Set<String> existedColumnNameSet,
-                                                       Set<String> nonNullColumnNameSet,
                                                        String source) {
         String columnList = sourceSpec.getColumns();
         if (StringUtils.isBlank(columnList)) {
@@ -331,15 +326,6 @@ public class SpecMaker {
         if (annotatedColumns.stream().anyMatch(c -> !existedColumnNameSet.contains(c))) {
             throw new IllegalStateException("Annotated column not found in " + source + ": "
                     + String.join(", ", annotatedColumns));
-        }
-        if (sourceSpec.isUnique()) {
-            List<String> nullableColumns = annotatedColumns.stream()
-                    .filter(c -> !nonNullColumnNameSet.contains(c))
-                    .toList();
-            if (!nullableColumns.isEmpty()) {
-                throw new IllegalStateException("Unique index requires all columns NOT NULL. " +
-                        "Nullable columns: " + String.join(", ", nullableColumns));
-            }
         }
         String indexName = StringUtils.isBlank(sourceSpec.getName())
                 ? makeIndexName(sourceSpec.isUnique(), annotatedColumns)

@@ -88,9 +88,22 @@ public class ColumnSpecMismatch implements ISpecMismatch {
     public String errorMessage() {
         List<String> mismatchMessages = new ArrayList<>(2);
         if (columnTypeMismatch) {
-            mismatchMessages.add(
-                    String.format("* Column type not match: expected '%s', actual '%s'",
-                            expectedColumnType, actualColumnType));
+            boolean columnTypeTextDiffers = !Objects.equals(expectedColumnType, actualColumnType);
+            if (dataTypeMismatch || columnTypeTextDiffers) {
+                mismatchMessages.add(
+                        String.format("* Column type not match: expected '%s', actual '%s'",
+                                expectedColumnType, actualColumnType));
+            }
+            if (lengthMismatch) {
+                mismatchMessages.add(
+                        String.format("* Column length not match: expected %s, actual %s",
+                                formatLength(expectedLength), formatLength(actualLength)));
+            }
+            if (mismatchMessages.isEmpty()) {
+                mismatchMessages.add(
+                        String.format("* Column type not match: expected '%s', actual '%s'",
+                                expectedColumnType, actualColumnType));
+            }
         }
         if (nullableMismatch) {
             mismatchMessages.add(
@@ -106,6 +119,10 @@ public class ColumnSpecMismatch implements ISpecMismatch {
         }
         return String.format("Column `%s` in table `%s` has specification mismatch:\n%s",
                 columnName, tableName, mismatchMessages.stream().collect(Collectors.joining("\n")));
+    }
+
+    private static String formatLength(Long length) {
+        return Objects.isNull(length) ? "<null>" : length.toString();
     }
 
     public boolean isColumnTypeMismatch() {

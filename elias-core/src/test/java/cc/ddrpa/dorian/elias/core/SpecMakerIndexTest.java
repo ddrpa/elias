@@ -32,10 +32,11 @@ class SpecMakerIndexTest {
     }
 
     @Test
-    void shouldRejectNullableColumnInUniqueCompositeIndex() {
-        IllegalStateException ex = Assertions.assertThrows(IllegalStateException.class,
-                () -> SpecMaker.makeTableSpec(InvalidUniqueCompositeEntity.class));
-        Assertions.assertTrue(ex.getMessage().contains("Unique index requires all columns NOT NULL"));
+    void shouldAllowNullableColumnInUniqueCompositeIndex() {
+        TableSpec tableSpec = SpecMaker.makeTableSpec(UniqueCompositeWithNullableEntity.class);
+        Assertions.assertTrue(tableSpec.getIndexes().stream()
+                .anyMatch(index -> index.isUnique()
+                        && "username, create_time".equals(index.getColumns())));
     }
 
     @Test
@@ -64,7 +65,7 @@ class SpecMakerIndexTest {
             @EliasTable.Index(columns = "username, create_time", unique = true)
     })
     @SuppressWarnings("unused")
-    private static class InvalidUniqueCompositeEntity {
+    private static class UniqueCompositeWithNullableEntity {
         @NotNull
         private String username;
         private String createTime;
