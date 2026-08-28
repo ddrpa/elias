@@ -135,7 +135,7 @@ public class ColumnModifySpec {
     }
 
     public ColumnModifySpec setComment(String comment) {
-        this.comment = comment;
+        this.comment = ColumnComments.sanitize(comment);
         return this;
     }
 
@@ -143,10 +143,7 @@ public class ColumnModifySpec {
      * DDL 用的已转义 comment；空白时返回 null。
      */
     public String getSqlComment() {
-        if (comment == null || comment.isBlank()) {
-            return null;
-        }
-        return comment.replace("'", "''");
+        return ColumnComments.forSqlLiteral(comment);
     }
 
     public boolean isAlterComment() {

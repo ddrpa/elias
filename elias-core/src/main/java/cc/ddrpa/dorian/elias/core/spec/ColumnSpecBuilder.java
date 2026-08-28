@@ -83,7 +83,7 @@ public class ColumnSpecBuilder {
     }
 
     public ColumnSpecBuilder setComment(String comment) {
-        this.comment = comment;
+        this.comment = ColumnComments.sanitize(comment);
         return this;
     }
 

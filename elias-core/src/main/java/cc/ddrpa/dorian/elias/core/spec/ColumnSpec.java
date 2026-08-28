@@ -172,7 +172,7 @@ public class ColumnSpec {
     }
 
     public ColumnSpec setComment(String comment) {
-        this.comment = comment;
+        this.comment = ColumnComments.sanitize(comment);
         return this;
     }
 
@@ -180,10 +180,7 @@ public class ColumnSpec {
      * DDL 用的已转义 comment；空白时返回 null（模板据此省略 COMMENT 子句）。
      */
     public String getSqlComment() {
-        if (comment == null || comment.isBlank()) {
-            return null;
-        }
-        return comment.replace("'", "''");
+        return ColumnComments.forSqlLiteral(comment);
     }
 
     public ColumnSpec setPrecisionAndScale(Integer precision, Integer scale) {

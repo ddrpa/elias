@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 class MySQL57GeneratorCommentDDLTest {
@@ -49,5 +50,18 @@ class MySQL57GeneratorCommentDDLTest {
         String addSql = generator.addColumn("tbl_account", column);
         Assertions.assertTrue(addSql.contains("comment 'O''Reilly'"),
                 "actual SQL was: " + addSql);
+    }
+
+    @Test
+    void shouldStripSemicolonsFromCommentInDdl() throws IOException {
+        MySQL57Generator generator = new MySQL57Generator().setDropIfExists(false);
+        String modifySql = generator.modifyColumn("stat_quality_dimension_daily", "dimension_id",
+                new ColumnModifySpec()
+                        .setColumnType("bigint(20)")
+                        .setNullable(false)
+                        .setComment("0=租户总分;1=分项"));
+        Assertions.assertTrue(modifySql.contains("comment '0=租户总分 1=分项'"));
+        Assertions.assertEquals(1,
+                Arrays.stream(modifySql.split(";")).filter(s -> !s.isBlank()).count());
     }
 }

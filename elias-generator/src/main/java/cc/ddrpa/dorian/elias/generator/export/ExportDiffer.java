@@ -1,5 +1,6 @@
 package cc.ddrpa.dorian.elias.generator.export;
 
+import cc.ddrpa.dorian.elias.core.spec.ColumnComments;
 import cc.ddrpa.dorian.elias.core.spec.ColumnModifySpec;
 import cc.ddrpa.dorian.elias.core.spec.ColumnModifySpecBuilder;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpec;
@@ -149,9 +150,10 @@ public class ExportDiffer {
                         fromProps.getDefaultValueAsString().isPresent()
                                 ? " default '" + fromProps.getDefaultValueAsString().get() + "'"
                                 : "",
-                        fromProps.getComment().isPresent()
-                                ? " comment '" + fromProps.getComment().get().replace("'", "''") + "'"
-                                : "");
+                        fromProps.getComment()
+                                .map(ColumnComments::forSqlLiteral)
+                                .map(c -> " comment '" + c + "'")
+                                .orElse(""));
                 result.add(new ExportChange(
                         Kind.MODIFY_COLUMN,
                         "rename column `" + from + "` -> `" + to + "` on `" + tableSpec.getName()
