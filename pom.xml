@@ -46,7 +46,15 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <skipPublishing>true</skipPublishing>
     </properties>
+
+    <distributionManagement>
+        <snapshotRepository>
+            <id>central</id>
+            <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
 
     <dependencyManagement>
         <dependencies>
@@ -109,9 +117,18 @@
                 <groupId>org.sonatype.central</groupId>
                 <artifactId>central-publishing-maven-plugin</artifactId>
                 <version>0.11.0</version>
-                <extensions>true</extensions>
+                <executions>
+                    <execution>
+                        <id>injected-central-publishing</id>
+                        <goals>
+                            <goal>publish</goal>
+                        </goals>
+                    </execution>
+                </executions>
                 <configuration>
                     <publishingServerId>central</publishingServerId>
+                    <!-- SNAPSHOT：mvn deploy。正式版：mvn deploy -DskipPublishing=false -Dmaven.deploy.skip=true -->
+                    <skipPublishing>${skipPublishing}</skipPublishing>
                 </configuration>
             </plugin>
             <plugin>
