@@ -55,6 +55,35 @@ public class IndexProperties {
         return Optional.of(mismatch);
     }
 
+    /**
+     * Same uniqueness and the full column list (names and ASC/DESC).
+     */
+    public boolean exactMatch(IndexSpec expected) {
+        List<String> expectedColumns = parseColumns(expected.getColumns());
+        return unique == expected.isUnique()
+                && columnListsEqual(expectedColumns, orderedColumns);
+    }
+
+    /**
+     * Whether this index can serve the expected one: exact match, unique covering
+     * non-unique on the same columns, or a longer index whose leftmost prefix matches.
+     * A unique expected index is only covered by a unique index on the same columns.
+     */
+    public boolean covers(IndexSpec expected) {
+        List<String> expectedColumns = parseColumns(expected.getColumns());
+        if (expectedColumns.isEmpty() || orderedColumns.size() < expectedColumns.size()) {
+            return false;
+        }
+        List<String> prefix = orderedColumns.subList(0, expectedColumns.size());
+        if (!columnListsEqual(expectedColumns, prefix)) {
+            return false;
+        }
+        if (expected.isUnique()) {
+            return unique && orderedColumns.size() == expectedColumns.size();
+        }
+        return true;
+    }
+
     public static List<String> parseColumns(String columns) {
         if (columns == null || columns.isBlank()) {
             return List.of();

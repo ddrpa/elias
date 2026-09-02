@@ -156,8 +156,10 @@ elias:
 启动时 Elias 会检查数据库 Schema 并输出差异报告：
 
 - 已存在且定义一致的索引会自动跳过；
-- 索引已存在但定义变化时，会建议 `drop index + create index`；
-- 当 `elias.validate.auto-fix=true` 时，索引变更会自动重建。
+- 库中已有功能覆盖（同列等价、unique 覆盖非 unique、最左前缀）的索引会跳过创建；
+- 仅改具名索引的 `name`（列与 unique 不变）时，会建议 `ALTER TABLE … RENAME INDEX`；
+- 同名索引定义变化时，会建议 `drop index + create index`；
+- 当 `elias.validate.auto-fix=true` 时，会执行创建、重建或改名；auto-fix 不会删除未改名的多余索引（changelog 导出仍会 drop 未覆盖任何期望的多余索引）。
 
 ```
 WARN  SchemaChecker - Expect column `create_user` in table `tbl_account` but not found.
@@ -227,7 +229,7 @@ Classpath 为 **reactor-aware**：同 reactor 内兄弟模块优先使用其 `ta
 | `changesetId` | 否 | 取自输出文件名 | Liquibase changeset id |
 | `rename` | 否 | — | 列重命名提示，见下 |
 | `excludeDropColumn` | 否 | `false` | 为 `true` 时不导出 `DROP COLUMN` |
-| `excludeDropIndex` | 否 | `false` | 为 `true` 时不导出「多余索引」的 `DROP INDEX`（定义变更仍会 DROP+CREATE） |
+| `excludeDropIndex` | 否 | `false` | 为 `true` 时不导出「多余索引」的 `DROP INDEX`（定义变更仍会 DROP+CREATE；覆盖源与 RENAME 源不会当多余索引删除） |
 
 命令行示例：
 
@@ -255,6 +257,10 @@ Classpath 为 **reactor-aware**：同 reactor 内兄弟模块优先使用其 `ta
 2. 与实体 diff；可选应用 `rename` / drop 排除
 3. 无导出 SQL → 日志 `No schema changes`，**不写文件**
 4. 有变更 → 写入 formatted-sql；含破坏性变更时额外 WARN
+
+`javax` / `jakarta.validation` 的 `@NotNull` / `@NotEmpty` / `@NotBlank`（以及可选的 OpenAPI `@Schema`）按注解 **FQCN 字符串**识别，不依赖与插件同一 ClassLoader；因此业务工程 classpath 上的 validation 注解在 `changelog-export` 的子 ClassLoader 扫描下仍会正确映射为 `NOT NULL`。
+
+H2 `MODE=MySQL` 对写在 `CREATE TABLE` 内的 `UNIQUE KEY name (...)` 常会把元数据名改成 `name_INDEX_*`。插件在检测到 H2 时将此类名视为与实体上的 `name` 相同（定义一致则不导出）；仍推荐 baseline 使用拆开的 `CREATE UNIQUE INDEX`，复杂 DDL 可用 MySQL scratch（`-DjdbcUrl=jdbc:mysql://...`）。
 
 默认 H2 URL **不含** `DB_CLOSE_DELAY=-1`，且每次运行使用唯一 `mem:` 名，避免同 JVM 残留 `databasechangelog` 导致重复创建失败。若自定义 `jdbcUrl` 仍使用固定 mem 名 + `DB_CLOSE_DELAY=-1`，请自行避免脏库。
 

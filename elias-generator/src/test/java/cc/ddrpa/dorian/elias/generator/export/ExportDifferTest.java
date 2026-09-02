@@ -216,6 +216,115 @@ class ExportDifferTest {
     }
 
     @Test
+    void doesNotExportWhenH2RenamesInlineUniqueKey() throws Exception {
+        try (Connection connection = h2();
+             Statement st = connection.createStatement()) {
+            st.execute("""
+                    create table demo (
+                      id bigint not null primary key,
+                      account_id varchar(64) not null,
+                      unique key uk_gdt_account_id (account_id)
+                    )
+                    """);
+            TableSpec expected = new TableSpec().setName("demo");
+            expected.getColumns().add(new ColumnSpec()
+                    .setName("id")
+                    .setDataType("bigint")
+                    .setColumnType("bigint")
+                    .setNullable(false)
+                    .setPrimaryKey(true));
+            expected.getColumns().add(new ColumnSpec()
+                    .setName("account_id")
+                    .setDataType("varchar")
+                    .setColumnType("varchar(64)")
+                    .setLength(64L)
+                    .setNullable(false));
+            expected.getIndexes().add(new IndexSpec()
+                    .setName("uk_gdt_account_id")
+                    .setUnique(true)
+                    .setColumns("account_id ASC"));
+
+            DiffResult diff = differ(connection).diff(List.of(expected));
+            assertTrue(indexChanges(diff).isEmpty(),
+                    () -> "unexpected index changes: " + indexChanges(diff).stream()
+                            .map(ExportChange::getSummary)
+                            .toList());
+        }
+    }
+
+    @Test
+    void doesNotExportWhenSeparateUniqueIndexNamePreserved() throws Exception {
+        try (Connection connection = h2();
+             Statement st = connection.createStatement()) {
+            st.execute("""
+                    create table demo (
+                      id bigint not null primary key,
+                      account_id varchar(64) not null
+                    )
+                    """);
+            st.execute("create unique index uk_gdt_account_id on demo (account_id)");
+            TableSpec expected = new TableSpec().setName("demo");
+            expected.getColumns().add(new ColumnSpec()
+                    .setName("id")
+                    .setDataType("bigint")
+                    .setColumnType("bigint")
+                    .setNullable(false)
+                    .setPrimaryKey(true));
+            expected.getColumns().add(new ColumnSpec()
+                    .setName("account_id")
+                    .setDataType("varchar")
+                    .setColumnType("varchar(64)")
+                    .setLength(64L)
+                    .setNullable(false));
+            expected.getIndexes().add(new IndexSpec()
+                    .setName("uk_gdt_account_id")
+                    .setUnique(true)
+                    .setColumns("account_id ASC"));
+
+            DiffResult diff = differ(connection).diff(List.of(expected));
+            assertTrue(indexChanges(diff).isEmpty());
+        }
+    }
+
+    @Test
+    void recreatesWhenH2AliasDefinitionDiffers() throws Exception {
+        try (Connection connection = h2();
+             Statement st = connection.createStatement()) {
+            st.execute("""
+                    create table demo (
+                      id bigint not null primary key,
+                      account_id varchar(64) not null,
+                      unique key uk_gdt_account_id (account_id)
+                    )
+                    """);
+            TableSpec expected = new TableSpec().setName("demo");
+            expected.getColumns().add(new ColumnSpec()
+                    .setName("id")
+                    .setDataType("bigint")
+                    .setColumnType("bigint")
+                    .setNullable(false)
+                    .setPrimaryKey(true));
+            expected.getColumns().add(new ColumnSpec()
+                    .setName("account_id")
+                    .setDataType("varchar")
+                    .setColumnType("varchar(64)")
+                    .setLength(64L)
+                    .setNullable(false));
+            // same H2 alias target name, but expect non-unique → recreate
+            expected.getIndexes().add(new IndexSpec()
+                    .setName("uk_gdt_account_id")
+                    .setUnique(false)
+                    .setColumns("account_id ASC"));
+
+            DiffResult diff = differ(connection).diff(List.of(expected));
+            assertTrue(indexChanges(diff).stream()
+                    .anyMatch(c -> c.getKind() == ExportChange.Kind.DROP_INDEX));
+            assertTrue(indexChanges(diff).stream()
+                    .anyMatch(c -> c.getKind() == ExportChange.Kind.CREATE_INDEX));
+        }
+    }
+
+    @Test
     void exportsCreateIndexFromFieldAnnotations() throws Exception {
         TableSpec expected = SpecMaker.makeTableSpec(IndexedAccount.class);
         assertTrue(expected.getIndexes().stream()
@@ -268,10 +377,84 @@ class ExportDifferTest {
         return expected;
     }
 
+    @Test
+    void skipsCreateWhenExistingIndexCoversExpected() throws Exception {
+        try (Connection connection = h2();
+             Statement st = connection.createStatement()) {
+            st.execute("create table demo (id bigint not null primary key, name varchar(50), email varchar(50))");
+            st.execute("create index idx_name_email on demo (name, email)");
+            TableSpec expected = demoTableWithEmail();
+            expected.getIndexes().add(new IndexSpec()
+                    .setName("idx_name")
+                    .setUnique(false)
+                    .setColumns("name ASC"));
+
+            DiffResult diff = differ(connection).diff(List.of(expected));
+            assertTrue(indexChanges(diff).isEmpty());
+        }
+    }
+
+    @Test
+    void exportsRenameWhenExactMatchHasDifferentName() throws Exception {
+        try (Connection connection = h2();
+             Statement st = connection.createStatement()) {
+            st.execute("create table demo (id bigint not null primary key, name varchar(50))");
+            st.execute("create index idx_legacy on demo (name)");
+            TableSpec expected = demoTable();
+            expected.getIndexes().add(new IndexSpec()
+                    .setName("idx_name")
+                    .setUnique(false)
+                    .setColumns("name ASC"));
+
+            DiffResult diff = differ(connection).diff(List.of(expected));
+            List<ExportChange> indexChanges = indexChanges(diff);
+            assertEquals(1, indexChanges.size());
+            assertEquals(ExportChange.Kind.RENAME_INDEX, indexChanges.get(0).getKind());
+            assertTrue(indexChanges.get(0).getSql().toLowerCase().contains("rename index"));
+            assertTrue(indexChanges.get(0).getRollbackSql().toLowerCase().contains("rename index"));
+            assertFalse(indexChanges.get(0).isDestructive());
+        }
+    }
+
+    @Test
+    void exportsCreateAndDropExtraWhenRenamedIndexNoLongerMatchesColumns() throws Exception {
+        try (Connection connection = h2();
+             Statement st = connection.createStatement()) {
+            st.execute("create table demo (id bigint not null primary key, name varchar(50), email varchar(50))");
+            st.execute("create index idx_legacy on demo (name)");
+            TableSpec expected = demoTableWithEmail();
+            expected.getIndexes().add(new IndexSpec()
+                    .setName("idx_name_email")
+                    .setUnique(false)
+                    .setColumns("name ASC, email ASC"));
+
+            DiffResult diff = differ(connection).diff(List.of(expected));
+            assertTrue(indexChanges(diff).stream()
+                    .anyMatch(c -> c.getKind() == ExportChange.Kind.CREATE_INDEX
+                            && c.getSql().toLowerCase().contains("idx_name_email")));
+            assertTrue(indexChanges(diff).stream()
+                    .anyMatch(c -> c.getKind() == ExportChange.Kind.DROP_INDEX
+                            && c.getSummary().startsWith("drop extra index")
+                            && c.getSql().toLowerCase().contains("idx_legacy")));
+        }
+    }
+
+    private static TableSpec demoTableWithEmail() {
+        TableSpec expected = demoTable();
+        expected.getColumns().add(new ColumnSpec()
+                .setName("email")
+                .setDataType("varchar")
+                .setColumnType("varchar(50)")
+                .setLength(50L)
+                .setNullable(true));
+        return expected;
+    }
+
     private static List<ExportChange> indexChanges(DiffResult diff) {
         return diff.getChanges().stream()
                 .filter(c -> c.getKind() == ExportChange.Kind.CREATE_INDEX
-                        || c.getKind() == ExportChange.Kind.DROP_INDEX)
+                        || c.getKind() == ExportChange.Kind.DROP_INDEX
+                        || c.getKind() == ExportChange.Kind.RENAME_INDEX)
                 .toList();
     }
 

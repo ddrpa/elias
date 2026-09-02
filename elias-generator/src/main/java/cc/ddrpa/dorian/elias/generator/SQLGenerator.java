@@ -23,4 +23,6 @@ public interface SQLGenerator {
     String createIndex(String tableName, IndexSpec indexSpec) throws IOException;
 
     String dropIndex(String tableName, String indexName) throws IOException;
+
+    String renameIndex(String tableName, String fromName, IndexSpec toSpec) throws IOException;
 }

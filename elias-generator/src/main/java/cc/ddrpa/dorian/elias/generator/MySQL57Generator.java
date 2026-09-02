@@ -78,6 +78,9 @@ public class MySQL57Generator implements SQLGenerator {
     private static final String DROP_H2_INDEX_TEMPLATE = """
             drop index if exists {{ index }};
             """;
+    private static final String RENAME_INDEX_TEMPLATE = """
+            alter table `{{ table }}` rename index `{{ from }}` to `{{ to }}`;
+            """;
 
     private final PebbleTemplate createTableTemplate;
     private final PebbleTemplate createH2TableTemplate;
@@ -89,6 +92,7 @@ public class MySQL57Generator implements SQLGenerator {
     private final PebbleTemplate createH2IndexTemplate;
     private final PebbleTemplate dropIndexTemplate;
     private final PebbleTemplate dropH2IndexTemplate;
+    private final PebbleTemplate renameIndexTemplate;
     private boolean dropIfExists = true;
     private boolean h2Compatibility = false;
 
@@ -107,6 +111,7 @@ public class MySQL57Generator implements SQLGenerator {
         this.createH2IndexTemplate = engine.getTemplate(CREATE_H2_INDEX_TEMPLATE);
         this.dropIndexTemplate = engine.getTemplate(DROP_INDEX_TEMPLATE);
         this.dropH2IndexTemplate = engine.getTemplate(DROP_H2_INDEX_TEMPLATE);
+        this.renameIndexTemplate = engine.getTemplate(RENAME_INDEX_TEMPLATE);
     }
 
     public MySQL57Generator setDropIfExists(boolean dropIfExists) {
@@ -174,6 +179,16 @@ public class MySQL57Generator implements SQLGenerator {
     public String dropIndex(String tableName, String indexName) throws IOException {
         PebbleTemplate template = h2Compatibility ? dropH2IndexTemplate : dropIndexTemplate;
         return render(template, Map.of("table", tableName, "index", indexName));
+    }
+
+    @Override
+    public String renameIndex(String tableName, String fromName, IndexSpec toSpec)
+            throws IOException {
+        if (h2Compatibility) {
+            return dropIndex(tableName, fromName) + "\n" + createIndex(tableName, toSpec);
+        }
+        return render(renameIndexTemplate,
+                Map.of("table", tableName, "from", fromName, "to", toSpec.getName()));
     }
 
     /**

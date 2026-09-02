@@ -21,4 +21,31 @@ class MySQL57GeneratorIndexDDLTest {
                 "create unique index uk_username_email on `tbl_account` (username ASC, email_address DESC);"));
         Assertions.assertTrue(dropSql.contains("drop index `uk_username_email` on `tbl_account`;"));
     }
+
+    @Test
+    void shouldRenderRenameIndexSql() throws IOException {
+        MySQL57Generator generator = new MySQL57Generator().setDropIfExists(false);
+        IndexSpec toSpec = new IndexSpec()
+                .setName("idx_username")
+                .setUnique(false)
+                .setColumns("username ASC");
+        String sql = generator.renameIndex("tbl_account", "idx_legacy", toSpec);
+        Assertions.assertTrue(sql.contains(
+                "alter table `tbl_account` rename index `idx_legacy` to `idx_username`;"));
+    }
+
+    @Test
+    void shouldRenderH2RenameIndexAsDropAndCreate() throws IOException {
+        MySQL57Generator generator = new MySQL57Generator()
+                .setDropIfExists(false)
+                .enableH2Compatibility();
+        IndexSpec toSpec = new IndexSpec()
+                .setName("idx_username")
+                .setUnique(true)
+                .setColumns("username ASC");
+        String sql = generator.renameIndex("tbl_account", "idx_legacy", toSpec);
+        Assertions.assertTrue(sql.contains("drop index if exists idx_legacy"));
+        Assertions.assertTrue(sql.contains(
+                "create unique index idx_username on tbl_account (username ASC);"));
+    }
 }

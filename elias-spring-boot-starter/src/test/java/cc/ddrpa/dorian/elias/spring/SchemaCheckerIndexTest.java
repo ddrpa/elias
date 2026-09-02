@@ -51,6 +51,38 @@ class SchemaCheckerIndexTest {
                 .anyMatch(sql -> sql.contains("create index idx_username on `tbl_account` (username ASC)")));
     }
 
+    @Test
+    void shouldSkipCreateWhenExistingIndexCoversExpected() throws Exception {
+        JdbcTemplate jdbcTemplate = mockJdbcTemplate();
+        mockMetadataRows(jdbcTemplate, List.of(
+                indexRow("idx_user_email", 1, 1, "username", "A"),
+                indexRow("idx_user_email", 1, 2, "email", "A")));
+        SchemaChecker schemaChecker = new SchemaChecker(jdbcTemplate)
+                .setAutoFix(true)
+                .addTableSpecies(List.of(mockTableSpec("username ASC", false)));
+
+        boolean mismatch = schemaChecker.check();
+
+        Assertions.assertFalse(mismatch);
+        verify(jdbcTemplate, never()).execute(anyString());
+    }
+
+    @Test
+    void shouldRenameWhenExactMatchExistsUnderDifferentName() throws Exception {
+        JdbcTemplate jdbcTemplate = mockJdbcTemplate();
+        mockMetadataRows(jdbcTemplate, List.of(indexRow("idx_legacy", 1, 1, "username", "A")));
+        SchemaChecker schemaChecker = new SchemaChecker(jdbcTemplate)
+                .setAutoFix(true)
+                .addTableSpecies(List.of(mockTableSpec("username ASC", false)));
+
+        schemaChecker.check();
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).execute(sqlCaptor.capture());
+        Assertions.assertTrue(sqlCaptor.getValue().contains(
+                "alter table `tbl_account` rename index `idx_legacy` to `idx_username`"));
+    }
+
     private static JdbcTemplate mockJdbcTemplate() throws Exception {
         JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
         DataSource dataSource = mock(DataSource.class);
@@ -98,12 +130,17 @@ class SchemaCheckerIndexTest {
     }
 
     private static List<Map<String, Object>> mockIndexRows(int nonUnique, String collation) {
-        return List.of(Map.of(
-                "INDEX_NAME", "idx_username",
+        return List.of(indexRow("idx_username", nonUnique, 1, "username", collation));
+    }
+
+    private static Map<String, Object> indexRow(String name, int nonUnique, int seq,
+                                                String column, String collation) {
+        return Map.of(
+                "INDEX_NAME", name,
                 "NON_UNIQUE", nonUnique,
-                "SEQ_IN_INDEX", 1,
-                "COLUMN_NAME", "username",
+                "SEQ_IN_INDEX", seq,
+                "COLUMN_NAME", column,
                 "COLLATION", collation
-        ));
+        );
     }
 }

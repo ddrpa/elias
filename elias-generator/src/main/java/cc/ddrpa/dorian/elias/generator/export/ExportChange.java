@@ -12,7 +12,8 @@ public class ExportChange {
         DROP_COLUMN,
         DROP_TABLE,
         CREATE_INDEX,
-        DROP_INDEX
+        DROP_INDEX,
+        RENAME_INDEX
     }
 
     private final Kind kind;

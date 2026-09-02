@@ -8,7 +8,10 @@ import java.lang.reflect.Method;
 import java.util.Optional;
 
 /**
- * 通过 FQCN 反射读取可选第三方注解属性，避免为可选生态引入 compile 依赖。
+ * 通过 FQCN 读取可选第三方注解属性，避免为可选生态引入 compile 依赖。
+ * <p>
+ * 按注解类型名字符串匹配，不依赖 {@link Class#forName(String)} / {@link Class} 身份，
+ * 以便 Maven 插件子 ClassLoader 加载的实体字段注解仍可被识别。
  */
 public final class OptionalAnnotationAttributes {
 
@@ -16,7 +19,7 @@ public final class OptionalAnnotationAttributes {
     }
 
     /**
-     * 判断元素上是否存在给定 FQCN 的注解（注解类不在 classpath 时视为不存在）。
+     * 判断元素上是否存在给定 FQCN 的注解（元素上无该注解时视为不存在）。
      */
     public static boolean isPresent(AnnotatedElement element, String annotationClassName) {
         return findAnnotation(element, annotationClassName).isPresent();
@@ -42,18 +45,16 @@ public final class OptionalAnnotationAttributes {
         });
     }
 
-    @SuppressWarnings("unchecked")
     private static Optional<Annotation> findAnnotation(AnnotatedElement element,
                                                        String annotationClassName) {
-        try {
-            Class<?> raw = Class.forName(annotationClassName);
-            if (!Annotation.class.isAssignableFrom(raw)) {
-                return Optional.empty();
-            }
-            Annotation annotation = element.getAnnotation((Class<? extends Annotation>) raw);
-            return Optional.ofNullable(annotation);
-        } catch (ClassNotFoundException | NoClassDefFoundError ignored) {
+        if (element == null || annotationClassName == null || annotationClassName.isBlank()) {
             return Optional.empty();
         }
+        for (Annotation annotation : element.getAnnotations()) {
+            if (annotationClassName.equals(annotation.annotationType().getName())) {
+                return Optional.of(annotation);
+            }
+        }
+        return Optional.empty();
     }
 }

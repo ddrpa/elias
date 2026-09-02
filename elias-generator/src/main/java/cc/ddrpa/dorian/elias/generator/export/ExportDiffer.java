@@ -7,7 +7,9 @@ import cc.ddrpa.dorian.elias.core.spec.ColumnSpec;
 import cc.ddrpa.dorian.elias.core.spec.IndexSpec;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
 import cc.ddrpa.dorian.elias.core.validation.ColumnProperties;
+import cc.ddrpa.dorian.elias.core.validation.IndexCoverage;
 import cc.ddrpa.dorian.elias.core.validation.IndexProperties;
+import cc.ddrpa.dorian.elias.core.validation.IndexReconciliation;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnSpecMismatch;
 import cc.ddrpa.dorian.elias.generator.MySQL57Generator;
 import cc.ddrpa.dorian.elias.generator.SQLGenerator;
@@ -47,6 +49,8 @@ public class ExportDiffer {
     private final String catalog;
     /** Current JDBC schema (e.g. H2 {@code PUBLIC}); often null on MySQL. */
     private final String schema;
+    /** When true, treat H2 {@code name_INDEX_*} as the expected index name. */
+    private final boolean h2IndexAliases;
     private final Map<String, String> renames = new LinkedHashMap<>();
 
     public ExportDiffer(Connection connection) throws SQLException {
@@ -58,6 +62,8 @@ public class ExportDiffer {
         this.generator = generator;
         this.catalog = connection.getCatalog();
         this.schema = connection.getSchema();
+        String product = connection.getMetaData().getDatabaseProductName();
+        this.h2IndexAliases = product != null && product.toUpperCase(Locale.ROOT).contains("H2");
     }
 
     /**
@@ -225,46 +231,61 @@ public class ExportDiffer {
     private void diffIndexes(TableSpec tableSpec, DiffResult result)
             throws SQLException, IOException {
         Map<String, IndexProperties> actualIndexes = fetchIndexProperties(tableSpec.getName());
-        Set<String> expectedIndexNames = tableSpec.getIndexes().stream()
-                .map(index -> index.getName().toLowerCase(Locale.ROOT))
-                .collect(Collectors.toCollection(HashSet::new));
+        List<IndexReconciliation.Decision> decisions =
+                IndexReconciliation.plan(
+                        tableSpec.getIndexes(), actualIndexes.values(), h2IndexAliases);
+        Set<String> retained = IndexReconciliation.retainedActualNames(decisions);
 
-        for (IndexSpec indexSpec : tableSpec.getIndexes()) {
-            IndexProperties actual = actualIndexes.get(indexSpec.getName().toLowerCase(Locale.ROOT));
-            if (actual == null) {
-                result.add(new ExportChange(
+        for (IndexReconciliation.Decision decision : decisions) {
+            switch (decision.kind()) {
+                case MATCH, COVERED -> {
+                    // already present or functionally covered
+                }
+                case CREATE -> result.add(new ExportChange(
                         Kind.CREATE_INDEX,
-                        "create index `" + indexSpec.getName() + "` on `" + tableSpec.getName()
-                                + "`",
-                        generator.createIndex(tableSpec.getName(), indexSpec),
-                        generator.dropIndex(tableSpec.getName(), indexSpec.getName()),
+                        "create index `" + decision.expected().getName() + "` on `"
+                                + tableSpec.getName() + "`",
+                        generator.createIndex(tableSpec.getName(), decision.expected()),
+                        generator.dropIndex(tableSpec.getName(), decision.expected().getName()),
                         false));
-                continue;
+                case RECREATE -> {
+                    IndexProperties actual = decision.actual();
+                    result.add(new ExportChange(
+                            Kind.DROP_INDEX,
+                            "drop index `" + actual.getName() + "` on `" + tableSpec.getName()
+                                    + "` before recreate",
+                            generator.dropIndex(tableSpec.getName(), actual.getName()),
+                            generator.createIndex(tableSpec.getName(), actual.toIndexSpec()),
+                            true));
+                    result.add(new ExportChange(
+                            Kind.CREATE_INDEX,
+                            "create index `" + decision.expected().getName() + "` on `"
+                                    + tableSpec.getName() + "`",
+                            generator.createIndex(tableSpec.getName(), decision.expected()),
+                            generator.dropIndex(tableSpec.getName(),
+                                    decision.expected().getName()),
+                            false));
+                }
+                case RENAME -> {
+                    IndexProperties actual = decision.actual();
+                    IndexSpec expected = decision.expected();
+                    result.add(new ExportChange(
+                            Kind.RENAME_INDEX,
+                            "rename index `" + actual.getName() + "` -> `" + expected.getName()
+                                    + "` on `" + tableSpec.getName() + "`",
+                            generator.renameIndex(tableSpec.getName(), actual.getName(), expected),
+                            generator.renameIndex(tableSpec.getName(), expected.getName(),
+                                    actual.toIndexSpec()),
+                            false));
+                }
             }
-            if (actual.validate(indexSpec).isEmpty()) {
-                continue;
-            }
-            result.add(new ExportChange(
-                    Kind.DROP_INDEX,
-                    "drop index `" + actual.getName() + "` on `" + tableSpec.getName()
-                            + "` before recreate",
-                    generator.dropIndex(tableSpec.getName(), actual.getName()),
-                    generator.createIndex(tableSpec.getName(), actual.toIndexSpec()),
-                    true));
-            result.add(new ExportChange(
-                    Kind.CREATE_INDEX,
-                    "create index `" + indexSpec.getName() + "` on `" + tableSpec.getName()
-                            + "`",
-                    generator.createIndex(tableSpec.getName(), indexSpec),
-                    generator.dropIndex(tableSpec.getName(), indexSpec.getName()),
-                    false));
         }
 
-        for (Map.Entry<String, IndexProperties> entry : actualIndexes.entrySet()) {
-            if (expectedIndexNames.contains(entry.getKey())) {
+        for (IndexProperties extra : actualIndexes.values()) {
+            String key = extra.getName().toLowerCase(Locale.ROOT);
+            if (IndexCoverage.isPrimaryIndex(extra.getName()) || retained.contains(key)) {
                 continue;
             }
-            IndexProperties extra = entry.getValue();
             result.add(new ExportChange(
                     Kind.DROP_INDEX,
                     "drop extra index `" + extra.getName() + "` from `" + tableSpec.getName()
@@ -358,7 +379,7 @@ public class ExportDiffer {
                     continue;
                 }
                 String name = rs.getString("INDEX_NAME");
-                if (name == null || isPrimaryIndex(name)) {
+                if (name == null) {
                     continue;
                 }
                 String columnName = rs.getString("COLUMN_NAME");
@@ -384,11 +405,6 @@ public class ExportDiffer {
                     new IndexProperties(entry.getKey(), rows.get(0).unique(), orderedColumns));
         }
         return result;
-    }
-
-    private static boolean isPrimaryIndex(String indexName) {
-        String upper = indexName.toUpperCase(Locale.ROOT);
-        return "PRIMARY".equals(upper) || upper.startsWith("PRIMARY_KEY");
     }
 
     private record ObservedIndexColumn(int ordinal, String columnName, String order,

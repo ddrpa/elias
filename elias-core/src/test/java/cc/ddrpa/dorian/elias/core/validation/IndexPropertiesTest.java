@@ -39,4 +39,64 @@ class IndexPropertiesTest {
         Assertions.assertTrue(spec.isUnique());
         Assertions.assertEquals("email ASC, tenant_id DESC", spec.getColumns());
     }
+
+    @Test
+    void exactMatchIgnoresIndexName() {
+        IndexProperties actual = new IndexProperties(
+                "idx_legacy", false, List.of("username ASC"));
+        Assertions.assertTrue(actual.exactMatch(new IndexSpec()
+                .setName("idx_username")
+                .setUnique(false)
+                .setColumns("username")));
+        Assertions.assertFalse(actual.exactMatch(new IndexSpec()
+                .setName("idx_username")
+                .setUnique(true)
+                .setColumns("username")));
+    }
+
+    @Test
+    void uniqueIndexCoversNonUniqueOnSameColumns() {
+        IndexProperties unique = new IndexProperties(
+                "uk_username", true, List.of("username ASC"));
+        IndexSpec nonUnique = new IndexSpec()
+                .setName("idx_username")
+                .setUnique(false)
+                .setColumns("username ASC");
+        Assertions.assertTrue(unique.covers(nonUnique));
+        Assertions.assertFalse(unique.exactMatch(nonUnique));
+    }
+
+    @Test
+    void longerIndexCoversLeftmostPrefix() {
+        IndexProperties composite = new IndexProperties(
+                "idx_user_email", false, List.of("username ASC", "email ASC"));
+        Assertions.assertTrue(composite.covers(new IndexSpec()
+                .setName("idx_username")
+                .setUnique(false)
+                .setColumns("username ASC")));
+        Assertions.assertFalse(composite.exactMatch(new IndexSpec()
+                .setName("idx_username")
+                .setUnique(false)
+                .setColumns("username ASC")));
+    }
+
+    @Test
+    void uniqueExpectedIsNotCoveredByLongerUniqueIndex() {
+        IndexProperties compositeUnique = new IndexProperties(
+                "uk_user_email", true, List.of("username ASC", "email ASC"));
+        Assertions.assertFalse(compositeUnique.covers(new IndexSpec()
+                .setName("uk_username")
+                .setUnique(true)
+                .setColumns("username ASC")));
+    }
+
+    @Test
+    void differentSortOrderDoesNotCover() {
+        IndexProperties actual = new IndexProperties(
+                "idx_username", false, List.of("username DESC"));
+        Assertions.assertFalse(actual.covers(new IndexSpec()
+                .setName("idx_username")
+                .setUnique(false)
+                .setColumns("username ASC")));
+    }
 }

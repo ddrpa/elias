@@ -3,10 +3,10 @@ package cc.ddrpa.dorian.elias.spring;
 import cc.ddrpa.dorian.elias.core.spec.ColumnModifySpec;
 import cc.ddrpa.dorian.elias.core.spec.ColumnModifySpecBuilder;
 import cc.ddrpa.dorian.elias.core.spec.ColumnSpec;
-import cc.ddrpa.dorian.elias.core.spec.IndexSpec;
 import cc.ddrpa.dorian.elias.core.spec.TableSpec;
 import cc.ddrpa.dorian.elias.core.validation.ColumnProperties;
 import cc.ddrpa.dorian.elias.core.validation.IndexProperties;
+import cc.ddrpa.dorian.elias.core.validation.IndexReconciliation;
 import cc.ddrpa.dorian.elias.core.validation.SchemaDefinitionIssue;
 import cc.ddrpa.dorian.elias.core.validation.SchemaDefinitionValidator;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.ISpecMismatch;
@@ -14,6 +14,7 @@ import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnNotExistMismatc
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ColumnSpecMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.IllegalIdentifierMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.IndexNotExistMismatch;
+import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.IndexRenameMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.IndexSpecMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.InvalidIndexDefinitionMismatch;
 import cc.ddrpa.dorian.elias.core.validation.mismatch.impl.ReservedKeywordMismatch;
@@ -141,6 +142,19 @@ public class SchemaChecker {
                                 indexSpecMismatch.getIndexName(),
                                 updateIndexSql);
                     }
+                } else if (mismatch instanceof IndexRenameMismatch indexRenameMismatch) {
+                    String renameIndexSql = generator.renameIndex(
+                            indexRenameMismatch.getTableName(),
+                            indexRenameMismatch.getActualName(),
+                            indexRenameMismatch.getExpectedIndexSpec());
+                    errorAndRecommend(mismatch.errorMessage(), renameIndexSql);
+                    if (autoFix) {
+                        autoFixRenameIndex(
+                                indexRenameMismatch.getTableName(),
+                                indexRenameMismatch.getActualName(),
+                                indexRenameMismatch.getExpectedIndexSpec().getName(),
+                                renameIndexSql);
+                    }
                 }
             }
         }
@@ -175,18 +189,30 @@ public class SchemaChecker {
                     .setColumnName(columnSpec.getName())));
         }
         Map<String, IndexProperties> sqlIndexMap = fetchIndexProperties(tableSpec.getName());
-        for (IndexSpec expectedIndex : tableSpec.getIndexes()) {
-            IndexProperties actualIndex = sqlIndexMap.get(
-                    expectedIndex.getName().toLowerCase(Locale.ROOT));
-            if (actualIndex == null) {
-                mismatches.add(new IndexNotExistMismatch(tableSpec.getName(), expectedIndex));
-                continue;
+        for (IndexReconciliation.Decision decision : IndexReconciliation.plan(
+                tableSpec.getIndexes(), sqlIndexMap.values())) {
+            switch (decision.kind()) {
+                case MATCH, COVERED -> {
+                    if (decision.kind() == IndexReconciliation.Kind.COVERED) {
+                        logger.info(
+                                "Index `{}` on table `{}` already covered by existing index `{}`, skip create.",
+                                decision.expected().getName(),
+                                tableSpec.getName(),
+                                decision.actual().getName());
+                    }
+                }
+                case RECREATE -> mismatches.add(decision.actual().validate(decision.expected())
+                        .orElseThrow()
+                        .setTableName(tableSpec.getName())
+                        .setIndexName(decision.expected().getName())
+                        .setExpectedIndexSpec(decision.expected()));
+                case RENAME -> mismatches.add(new IndexRenameMismatch(
+                        tableSpec.getName(),
+                        decision.actual().getName(),
+                        decision.expected()));
+                case CREATE -> mismatches.add(
+                        new IndexNotExistMismatch(tableSpec.getName(), decision.expected()));
             }
-            actualIndex.validate(expectedIndex)
-                    .ifPresent(indexSpecMismatch -> mismatches.add(indexSpecMismatch
-                            .setTableName(tableSpec.getName())
-                            .setIndexName(expectedIndex.getName())
-                            .setExpectedIndexSpec(expectedIndex)));
         }
         return mismatches;
     }
@@ -239,11 +265,16 @@ public class SchemaChecker {
                 tableName);
     }
 
+    private void autoFixRenameIndex(String tableName, String fromName, String toName, String sql) {
+        executeMultiSQL(sql);
+        logger.warn("Applying auto-fix…… Index `{}` renamed to `{}` in table `{}`.",
+                fromName, toName, tableName);
+    }
+
     private Map<String, IndexProperties> fetchIndexProperties(String tableName) {
         List<Map<String, Object>> rawIndexDetails = jdbcTemplate.queryForList(FETCH_INDEX_METADATA_SQL,
                 this.schema, tableName);
         Map<String, List<Map<String, Object>>> groupedRows = rawIndexDetails.stream()
-                .filter(row -> !"PRIMARY".equals(row.get("INDEX_NAME")))
                 .collect(Collectors.groupingBy(row -> String.valueOf(row.get("INDEX_NAME")),
                         LinkedHashMap::new, Collectors.toList()));
         Map<String, IndexProperties> result = new LinkedHashMap<>();
