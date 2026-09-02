@@ -22,6 +22,18 @@ public class DiffResult {
         return changes.isEmpty();
     }
 
+    /**
+     * True when at least one change has non-blank forward SQL worth writing to a changeset file.
+     */
+    public boolean hasExportableSql() {
+        for (ExportChange change : changes) {
+            if (change.getSql() != null && !change.getSql().isBlank()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public List<ExportChange> getDestructiveChanges() {
         return changes.stream().filter(ExportChange::isDestructive).toList();
     }

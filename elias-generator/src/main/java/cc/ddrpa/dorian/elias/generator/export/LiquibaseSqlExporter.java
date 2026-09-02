@@ -17,13 +17,27 @@ public class LiquibaseSqlExporter {
 
     public boolean export(DiffResult diffResult, Path outputFile, String changesetId, String author)
             throws IOException {
-        if (diffResult == null || diffResult.isEmpty()) {
+        if (diffResult == null || !diffResult.hasExportableSql()) {
+            return false;
+        }
+        String content = render(diffResult, changesetId, author);
+        if (content.isBlank() || !containsForwardSql(content)) {
             return false;
         }
         Files.createDirectories(outputFile.getParent());
-        String content = render(diffResult, changesetId, author);
         Files.writeString(outputFile, content, StandardCharsets.UTF_8);
         return true;
+    }
+
+    private static boolean containsForwardSql(String content) {
+        for (String line : content.split("\n")) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty() || trimmed.startsWith("--")) {
+                continue;
+            }
+            return true;
+        }
+        return false;
     }
 
     public String render(DiffResult diffResult, String changesetId, String author) {

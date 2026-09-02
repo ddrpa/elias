@@ -1,9 +1,10 @@
 # Elias
 
-Elias 是一个 Java 实体类到 MySQL Schema 的映射工具，提供两项核心功能：
+Elias 是一个 Java 实体类到 MySQL Schema 的映射工具，提供三项核心功能：
 
 - **DDL 生成**：将 Java POJOs 转换为 MySQL 建表语句
 - **Schema 校验**：在 Spring Boot 启动时检查数据库结构与实体类定义的一致性，并可选择自动修复
+- **Changelog 导出**：Maven 插件对比 Liquibase baseline 与当前 `@EliasTable` 实体，生成增量 formatted-sql changeset
 
 ## 设计背景
 
@@ -50,8 +51,9 @@ Elias 采用「代码优先」的思路，以 Java 实体类为 Schema 的唯一
 | 模块 | 说明 |
 |------|------|
 | `elias-core` | 核心库，包含注解定义、类型映射工厂、规格构建器 |
-| `elias-generator` | DDL 生成器，将 TableSpec 渲染为 SQL 语句 |
+| `elias-generator` | DDL 生成器，将 TableSpec 渲染为 SQL 语句；含 export diff |
 | `elias-spring-boot-starter` | Spring Boot 集成，提供启动时 Schema 校验功能 |
+| `elias-maven-plugin` | Maven 插件，提供 `elias:changelog-export` 增量 changeset 导出 |
 
 ## 快速开始
 
@@ -172,6 +174,89 @@ alter table `tbl_equipment` modify column `quantity` int default '0';
 
 WARN  SchemaChecker - Invalid schema definition in table `tbl_account`: column `order` uses reserved keyword. Identifier conflicts with MySQL reserved keyword.
 ```
+
+## Maven 插件：changelog-export
+
+将现有 Liquibase changelog 应用到空库（默认 H2 `MODE=MySQL`），再与当前 `@EliasTable` 实体 diff，有变更时写出一份 Liquibase formatted-sql changeset；**无有效 SQL 时不落盘**。
+
+### 配置
+
+在需要导出的模块（非 `packaging=pom`）声明插件：
+
+```xml
+<plugin>
+  <groupId>cc.ddrpa.dorian.elias</groupId>
+  <artifactId>elias-maven-plugin</artifactId>
+  <version>${elias.version}</version>
+  <configuration>
+    <scanPackages>
+      <scanPackage>com.example.entity</scanPackage>
+    </scanPackages>
+    <changeLogDir>${project.basedir}/src/main/resources/db/changelog</changeLogDir>
+    <!-- 可选，默认 db.changelog-master.yaml（相对 changeLogDir） -->
+    <!-- <changeLogMaster>db.changelog-master.yaml</changeLogMaster> -->
+  </configuration>
+</plugin>
+```
+
+`changeLogDir` 下通常有 master 文件与 `changes/` 编号脚本；未指定 `-Dout` 时，新文件写到 `changes/NNNN-elias-export.sql`。
+
+### 调用
+
+```bash
+./mvnw elias:changelog-export
+# 或
+./mvnw -pl :your-module elias:changelog-export
+```
+
+Goal 默认不绑定生命周期（`defaultPhase=NONE`），需显式执行。`packaging=pom` 的工程会自动 skip。
+
+Classpath 为 **reactor-aware**：同 reactor 内兄弟模块优先使用其 `target/classes`，不必先 `install` 到本地仓库。第三方依赖仍从仓库解析。若当前或兄弟模块尚无编译产物，会报错提示先 compile。
+
+### 参数
+
+| 参数 / 属性 | 必填 | 默认值 | 说明 |
+|-------------|------|--------|------|
+| `scanPackages` | 是 | — | 扫描 `@EliasTable` 的包 |
+| `changeLogDir` | 是 | — | Liquibase changelog 目录 |
+| `changeLogMaster` | 否 | `db.changelog-master.yaml` | master 文件（相对 `changeLogDir` 或绝对路径） |
+| `jdbcUrl` | 否 | H2 mem + `MODE=MySQL` + `DATABASE_TO_LOWER` 等 | 临时库；可用 MySQL scratch 库 |
+| `jdbcUser` / `jdbcPassword` | 否 | `sa` / 空 | JDBC 凭据 |
+| `author` | 否 | `elias` | changeset author |
+| `out` | 否 | 自动编号 | 显式输出文件 |
+| `changesetId` | 否 | 取自输出文件名 | Liquibase changeset id |
+| `rename` | 否 | — | 列重命名提示，见下 |
+| `excludeDropColumn` | 否 | `false` | 为 `true` 时不导出 `DROP COLUMN` |
+| `excludeDropIndex` | 否 | `false` | 为 `true` 时不导出「多余索引」的 `DROP INDEX`（定义变更仍会 DROP+CREATE） |
+
+命令行示例：
+
+```bash
+./mvnw elias:changelog-export \
+  -Drename=old_col:new_col \
+  -DexcludeDropColumn=true
+```
+
+### `-Drename`：列重命名
+
+避免把「改名」导出成 `DROP` + `ADD`。格式：
+
+| 写法 | 含义 |
+|------|------|
+| `old:new` | 所有表中旧列名 → 新列名 |
+| `table.old:new` | 仅指定表 |
+| 逗号分隔或多次 `-Drename=` | 多条映射 |
+
+命中后导出 MySQL `CHANGE COLUMN`（H2 baseline 重放可能不支持；复杂 DDL 可用 MySQL scratch：`-DjdbcUrl=jdbc:mysql://...`）。
+
+### 行为说明
+
+1. 对空库执行 Liquibase `update`（无 master 则空 baseline 并告警）
+2. 与实体 diff；可选应用 `rename` / drop 排除
+3. 无导出 SQL → 日志 `No schema changes`，**不写文件**
+4. 有变更 → 写入 formatted-sql；含破坏性变更时额外 WARN
+
+默认 H2 URL **不含** `DB_CLOSE_DELAY=-1`，且每次运行使用唯一 `mem:` 名，避免同 JVM 残留 `databasechangelog` 导致重复创建失败。若自定义 `jdbcUrl` 仍使用固定 mem 名 + `DB_CLOSE_DELAY=-1`，请自行避免脏库。
 
 ## 类型映射规则
 
@@ -609,6 +694,9 @@ Java Entity Class
        +---> MySQL57Generator.createTable() ---> DDL SQL
        |
        +---> SchemaChecker.check() ---> 差异报告 / 修复 SQL
+       |
+       +---> elias:changelog-export (Liquibase baseline + ExportDiffer)
+                 ---> changes/NNNN-elias-export.sql
 ```
 
 ### 核心组件
