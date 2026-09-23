@@ -25,7 +25,7 @@ Elias 采用「代码优先」的思路，以 Java 实体类为 Schema 的唯一
 
 ## 安装
 
-当前稳定版本为 `2.5.2`。
+当前稳定版本为 `2.5.3`。
 
 ### Maven Central
 
@@ -33,7 +33,7 @@ Elias 采用「代码优先」的思路，以 Java 实体类为 Schema 的唯一
 <dependency>
   <groupId>cc.ddrpa.dorian.elias</groupId>
   <artifactId>elias-generator</artifactId>
-  <version>2.5.2</version>
+  <version>2.5.3</version>
 </dependency>
 ```
 

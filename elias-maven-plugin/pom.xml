@@ -6,7 +6,7 @@
   <parent>
     <groupId>cc.ddrpa.dorian.elias</groupId>
     <artifactId>elias-pom</artifactId>
-    <version>2.5.3-SNAPSHOT</version>
+    <version>2.5.3</version>
   </parent>
   <artifactId>elias-maven-plugin</artifactId>
   <name>elias-maven-plugin</name>
